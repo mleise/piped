@@ -1,0 +1,7 @@
+Makefile
+Sequencer.userprefs
+FASTA/FASTA.userprefs
+bin/
+obj/
+*.fa
+*.gz

@@ -1,0 +1,71 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Project DefaultTargets="Build" ToolsVersion="3.5" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <PropertyGroup>
+    <Configuration Condition=" '$(Configuration)' == '' ">Debug</Configuration>
+    <Platform Condition=" '$(Platform)' == '' ">AnyCPU</Platform>
+    <ProductVersion>9.0.21022</ProductVersion>
+    <SchemaVersion>2.0</SchemaVersion>
+    <ProjectGuid>{A3D69969-3DC2-47EF-AEF6-98DF52421C7C}</ProjectGuid>
+    <PreferOneStepBuild>true</PreferOneStepBuild>
+    <UseDefaultCompiler>false</UseDefaultCompiler>
+    <IncrementalLinking>true</IncrementalLinking>
+    <Compiler>DMD</Compiler>
+    <BaseDirectory>..\src</BaseDirectory>
+  </PropertyGroup>
+  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|AnyCPU' ">
+    <DebugSymbols>true</DebugSymbols>
+    <OutputPath>..\bin\Debug</OutputPath>
+    <ObjectsDirectory>../obj/Debug</ObjectsDirectory>
+    <UnittestMode>false</UnittestMode>
+    <OutputName>FASTA</OutputName>
+    <Target>Executable</Target>
+    <Externalconsole>true</Externalconsole>
+    <DebugLevel>0</DebugLevel>
+    <Commandlineparameters>../../Homo_sapiens.GRCh37.67.dna_rm.chromosome.Y.fa ../../Homo_sapiens.GRCh37.67.dna_rm.chromosome.Y.fa.gz</Commandlineparameters>
+  </PropertyGroup>
+  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release|AnyCPU' ">
+    <OutputPath>..\bin\Release</OutputPath>
+    <Externalconsole>true</Externalconsole>
+    <Target>Executable</Target>
+    <OutputName>FASTA</OutputName>
+    <UnittestMode>false</UnittestMode>
+    <ObjectsDirectory>../obj/Release</ObjectsDirectory>
+    <DebugLevel>0</DebugLevel>
+    <Commandlineparameters>../../Homo_sapiens.GRCh37.67.dna_rm.chromosome.Y.fa ../../Homo_sapiens.GRCh37.67.dna_rm.chromosome.Y.fa.gz</Commandlineparameters>
+  </PropertyGroup>
+  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Unittest|AnyCPU' ">
+    <DebugSymbols>true</DebugSymbols>
+    <OutputPath>..\bin\Unittest</OutputPath>
+    <ObjectsDirectory>../obj/Unittest</ObjectsDirectory>
+    <UnittestMode>true</UnittestMode>
+    <OutputName>FASTA</OutputName>
+    <Target>Executable</Target>
+    <Externalconsole>true</Externalconsole>
+    <DebugLevel>0</DebugLevel>
+  </PropertyGroup>
+  <ItemGroup>
+    <Folder Include="Sequencer\" />
+    <Folder Include="Sys\" />
+    <Folder Include="src\sequencer\algorithm\" />
+  </ItemGroup>
+  <ProjectExtensions>
+    <MonoDevelop>
+      <Properties>
+        <Policies>
+          <TextStylePolicy FileWidth="120" TabWidth="3" IndentWidth="3" NoTabsAfterNonTabs="True" EolMarker="Unix" inheritsSet="Mono" inheritsScope="text/plain" scope="text/x-d" />
+          <DFormattingPolicy IndentPastedCodeLines="False" inheritsSet="Mono" inheritsScope="text/x-d" scope="text/x-d" />
+        </Policies>
+      </Properties>
+    </MonoDevelop>
+  </ProjectExtensions>
+  <ItemGroup>
+    <Compile Include="..\src\defs.d" />
+    <Compile Include="..\src\fasta.d" />
+    <Compile Include="..\src\sequencer\circularbuffer.d" />
+    <Compile Include="..\src\sequencer\threads.d" />
+    <Compile Include="..\src\sequencer\algorithm\copy.d" />
+    <Compile Include="..\src\sequencer\algorithm\gzip.d" />
+    <Compile Include="..\src\sequencer\algorithm\text.d" />
+    <Compile Include="..\src\sys\memarch.d" />
+  </ItemGroup>
+</Project>
