@@ -71,18 +71,25 @@ real countBasesThreaded(string fname)
 
 real countBasesImpl(R)(R range)
 {
-	ℕ totalBaseCount, gcCount;
+	ℕ atCount, gcCount;
 	foreach (line; range) {
 		if (line.length == 0 || line[0] == '>' || line[0] == ';')
 			continue;
 		foreach (ch; line) {
-			if (ch == 'C' || ch == 'T' || ch == 'G' || ch == 'A') {
-				totalBaseCount++;
-				if (ch == 'G' || ch == 'C') {
-					gcCount++;
-				}
-			}   
+			atCount += countAT[ch];
+			gcCount += countGC[ch];
 		}
 	}
-	return 100.0 * gcCount / totalBaseCount;
+	return 100.0 * gcCount / (atCount + gcCount);
+}
+
+immutable ubyte[256] countAT;
+immutable ubyte[256] countGC;
+
+static this()
+{
+	countAT['A'] = 1;
+	countAT['T'] = 1;
+	countGC['G'] = 1;
+	countGC['C'] = 1;
 }
