@@ -10,14 +10,14 @@ import sequencer.algorithm.text;
 
 int main(string[] args)
 {
-	if (args.length < 3) {
-		stderr.writeln("You need to specify a FASTA file and its gzip comressed version.");
-		return 1;
-	}
 	version(profile) {
 		string plain = "Homo_sapiens.GRCh37.67.dna_rm.chromosome.Y.fa";
 		string gz    = "Homo_sapiens.GRCh37.67.dna_rm.chromosome.Y.fa.gz";
 	} else {
+		if (args.length < 3) {
+			stderr.writeln("You need to specify a FASTA file and its gzip comressed version.");
+			return 1;
+		}
 		string plain = args[1];
 		string gz    = args[2];
 	}
@@ -73,11 +73,11 @@ real countBasesImpl(R)(R range)
 {
 	ℕ atCount, gcCount;
 	foreach (line; range) {
-		if (line.length == 0 || line[0] == '>' || line[0] == ';')
-			continue;
-		foreach (ch; line) {
-			atCount += countAT[ch];
-			gcCount += countGC[ch];
+		if (line.length != 0 && line[0] != '>' && line[0] != ';') {
+			foreach (ch; line) {
+				atCount += countAT[ch];
+				gcCount += countGC[ch];
+			}
 		}
 	}
 	return 100.0 * gcCount / (atCount + gcCount);

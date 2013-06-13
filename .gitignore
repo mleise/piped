@@ -5,3 +5,5 @@ bin/
 obj/
 *.fa
 *.gz
+oprofile_data/
+profile_report.txt
