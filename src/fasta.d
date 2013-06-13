@@ -80,7 +80,7 @@ real countBasesImpl(R)(R range)
 			}
 		}
 	}
-	return 100.0 * gcCount / (atCount + gcCount);
+	return (gcCount == 0) ? 0.0 : 100.0 * gcCount / (atCount + gcCount);
 }
 
 immutable ubyte[256] countAT;
@@ -89,7 +89,11 @@ immutable ubyte[256] countGC;
 static this()
 {
 	countAT['A'] = 1;
+	countAT['a'] = 1;
 	countAT['T'] = 1;
+	countAT['t'] = 1;
 	countGC['G'] = 1;
+	countGC['g'] = 1;
 	countGC['C'] = 1;
+	countGC['c'] = 1;
 }

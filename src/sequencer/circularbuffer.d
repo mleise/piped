@@ -21,8 +21,6 @@ import core.sys.posix.sys.mman;
 import core.sys.posix.pthread;
 
 
-shared bool broken = false;
-
 class EndOfStreamException : Exception
 {
     @safe pure nothrow this(string msg, string file = __FILE__, size_t line = __LINE__, Throwable next = null)
@@ -106,7 +104,7 @@ private:
 		m_buf = cast(ubyte*) mmap(null, 4 * size, PROT_READ | PROT_WRITE, MAP_SHARED | MAP_ANON, -1, 0);
 
 		// cut out a piece that fits our bit masking requirement and deallocate the rest
-		auto cut = m_buf.growPtrToNextMultipleOfPowerOfTwoValue(2 * size);
+		auto cut = m_buf.alignPtrToNextMultipleOfPowerOfTwoValue(2 * size);
 		debug(circularbuffer) stderr.writefln("Cutting out: %s -> %s", m_buf, cut);
 		immutable pgoff = cut - m_buf;
 		munmap(m_buf, pgoff);

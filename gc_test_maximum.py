@@ -1,7 +1,8 @@
 import re
 import string
+import sys
 
-file = open("Homo_sapiens.GRCh37.67.dna_rm.chromosome.Y.fa","r")
+file = open(sys.argv[1],"r")
 file.readline() # skip header
 body = file.read()
 g = body.count("G")
@@ -10,5 +11,8 @@ t = body.count("T")
 a = body.count("A")
 gcCount = g+c
 totalBaseCount = g+c+t+a
-gcFraction = float(gcCount) / totalBaseCount
+if gcCount == 0:
+	gcFraction = 0
+else:
+	gcFraction = float(gcCount) / totalBaseCount
 print( gcFraction * 100 )

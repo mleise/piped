@@ -1,6 +1,7 @@
 module sequencer.algorithm.gzip;
 
 import core.atomic;
+import core.stdc.stdlib;
 import core.stdc.string;
 import std.stdio;
 import std.string;
@@ -410,7 +411,6 @@ immutable HuffmanTree EMPTY_TREE = HuffmanTree();
 struct HuffmanTree
 {
 private:
-
 	struct Leaf {
 		ushort code;
 		ubyte numBits;
@@ -422,7 +422,6 @@ private:
 	Leaf[] leaves;
 
 public:
-
 	this()() {}
 
 	this(R)(R bitLengths) if ((isRandomAccessRange!R || isArray!R) && is(ElementType!R == ubyte))
@@ -441,7 +440,11 @@ public:
 			break;
 		}
 		enforce(maxBits > 0, "No bit lengths given for Huffman tree");
-		leaves = new Leaf[](1 << maxBits);
+		if (__ctfe) {
+			leaves = new Leaf[](1 << maxBits);
+		} else {
+			leaves = (cast(Leaf*) malloc(Leaf.sizeof * (1 << maxBits)))[0 .. 1 << maxBits];
+		}
 
 		instantMaxBit = min(cast(ubyte) 10, maxBits);
 		ushort instantMask = cast(ushort) ((1 << instantMaxBit) - 1);
@@ -477,6 +480,13 @@ public:
 		}
 	}
 
+	~this()
+	{
+		if (!__ctfe) {
+			free(leaves.ptr);
+		}
+	}
+
 	Leaf opIndex(ℕ index) const pure nothrow
 	{
 		return leaves[index];
@@ -484,7 +494,7 @@ public:
 
 	@property bool empty() const pure nothrow
 	{
-		return leaves.length == 0;
+		return maxBits == 0;
 	}
 }
 

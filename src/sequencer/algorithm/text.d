@@ -1,94 +1,95 @@
 module sequencer.algorithm.text;
 
-import core.atomic;
-import std.algorithm;
-import std.range;
 public import std.string : KeepTerminator;
-import std.stdio;
+
+import std.range : isInputRange;
 
 import defs;
 import sequencer.circularbuffer;
 import sequencer.threads;
-import core.thread;
-import core.thread;
-import core.sys.posix.pthread;
 
 
+/**
+ * Splits a source into Unix text lines. If 'keepTerminator' is set, \n will be kept on the resulting lines,
+ * except maybe on the last line where it may not be in the source.
+ */
 auto splitLines(T)(T source, KeepTerminator keepTerminator = KeepTerminator.no)
 {
-	return SLineRange(source.toSequencerThread(), keepTerminator);
+	return LineRange(source.toSequencerThread(), keepTerminator);
 }
 
-private struct SLineRange
+private struct LineRange
 {
 private:
-	CSequencerThread m_supplier;
-	SCircularBuffer* m_source;
-	ℕ m_lineSize;
-	ℕ m_lineLength;
-	const(char)[] m_peek;
-	bool m_empty;
-	bool m_removeTerminator;
-	SBufferPtr* m_get;
+	CSequencerThread supplier;          /// The thread that supplies us with text to line break. This pointer keeps it from being collected by the GC before we can read out all buffer data. It is also used to join that thread with ours, once all text is read.
+	SBufferPtr*      get;               /// A shortcut to the supplier thread's 'get' buffer pointer.
+	ℕ                lineSize;          /// Byte size of the current line including line-break characters.
+	ℕ                lineLength;        /// The line length as returned by front(). Same as lineSize if line-breaks are kept.
+	const(char)[]    peek;              /// A range of bytes that lie ahead in the buffer. It is extended when no line-break is found in it.
+	bool             _empty;            /// Set, after the last available line has been popped.
+	bool             removeTerminator;  /// If set, the returned lines will have line-break characters removed.
 
 	@disable this();
 
 	this(CSequencerThread supplier, KeepTerminator keepTerminator)
 	{
-		m_supplier = supplier;
-		m_get = supplier.source;
-		m_removeTerminator = (keepTerminator == KeepTerminator.no);
+		this.supplier = supplier;
+		this.get = supplier.source;
+		this.removeTerminator = (keepTerminator == KeepTerminator.no);
 		popFront();
 	}
 
 public:
-	@property bool empty() const
-	{
-		return m_empty;
-	}
+	@property bool empty() const pure nothrow { return this._empty; }
 
 	void popFront()
-	in   { assert(!empty); }
+	in   { assert(!this._empty); }
 	body {
-		if (m_lineSize) {
-			m_get.release(m_lineSize);
-			m_peek = m_peek[m_lineSize .. $];
-			broken = m_lineSize < 60;
-		}
-		auto b = m_peek.ptr;
+		// popFront() 101: Release the buffer space we no longer need to expose through front().
+		this.get.release(this.lineSize);
+		this.peek.drop(this.lineSize);
+		// Look for the next line-break in 'peek', eventually fetching more buffer space from our supplier.
+		auto b = this.peek.ptr;
 		try while (true) {
-			const e = m_peek.ptr + m_peek.length;
+			// End or sentinel pointer
+			const e = this.peek.ptr + this.peek.length;
+			// First we skip as many blocks of size size_t that don't contain line-breaks as possible.
+			for (auto skipFast = (e - b) / size_t.sizeof; skipFast; skipFast--) {
+				if (contains!'\n'( *(cast(size_t*) b) )) break;
+				b += size_t.sizeof;
+			}
+			// Then we examine byte by byte and return when we find a complete line of text.
 			while (b !is e) {
-				if (*(b++) == '\n') {
-					m_lineLength = m_lineSize = b - m_peek.ptr;
-					if (m_removeTerminator)
-						m_lineLength--;
-					if (m_lineLength > 80)
-						stderr.writefln("IT HAPPENED AGAIN!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!");
+				if (*b == '\n') {
+					this.lineLength = this.lineSize = b - this.peek.ptr + 1;
+					if (this.removeTerminator)
+						this.lineLength--;
 					return;
 				}
+				b++;
 			}
-			ℕ pos = m_peek.length;
-			m_peek = cast(const(char)[]) m_get.mapAtLeast(pos + 1);
-//			if (pos + 1 > m_peek.length)
-//				stderr.writeln("test");
-			b = m_peek.ptr + pos;
-//			if (*b != 'N' && *b != '>' && *b != '\n')
-//				stderr.writefln("arrrg: '%s'", *b);
+			// We require at least one more byte. If the supply is out, we catch the exception below.
+			immutable pos = this.peek.length;
+			this.peek = cast(const(char)[]) this.get.mapAtLeast(pos + 1);
+			b = this.peek.ptr + pos;
 		} catch (EndOfStreamException e) {
-			m_peek = cast(const(char)[]) m_get.mapAvailable();
-			m_lineLength = m_lineSize = m_peek.length;
-			m_empty = (m_lineSize == 0);
-			if (m_empty) {
-				m_supplier.join();
+			// There is no more line-breaks in the text. We might still have an unterminated line in
+			// the buffer though. Note: We get here a second time, if '_empty' isn't set below yet.
+			this.peek = cast(const(char)[]) this.get.mapAvailable();
+			this.lineLength = this.lineSize = this.peek.length;
+			this._empty = (this.lineSize == 0);
+			// We join the supplier thread here.
+			// TODO: Allow this range to be destroyed before it is empty. (Requires notifying supply thread.)
+			if (this._empty) {
+				this.supplier.join();
 			}
 		}
 	}
 
-	@property const(char)[] front() const
-	in   { assert(!m_empty); }
+	@property const(char)[] front() const pure nothrow
+	in   { assert(!this._empty); }
 	body {
-		return m_peek[0 .. m_lineLength];
+		return this.peek[0 .. this.lineLength];
 	}
 }
-static assert(isInputRange!SLineRange);
+static assert(isInputRange!LineRange);
