@@ -141,7 +141,7 @@ final class CInflateThread : CAlgorithmThread
 {
 private:
 	enum ℕ WINDOW_SIZE = 32.KiB;
-	enum END_OF_BLOCK = cast(ushort) 256;
+	enum END_OF_BLOCK = 256;
 	enum CODE_LENGTHS = 19;
 	static immutable ubyte[CODE_LENGTHS] CODE_LENGTH_ORDER = [ 16,17,18,0,8,7,9,6,10,5,11,4,12,3,13,2,14,1,15 ];
 
@@ -197,14 +197,18 @@ private:
 
 	void recallBytes(ℕ back, ℕ length)
 	{
-		auto fill   = m_kept + length;
-		auto mapped = m_buffer.put.map(fill);
-		auto sink   = &mapped[m_kept];
-		auto dst = &mapped[m_kept];
-		auto src = dst - back;
-		const sentinel = dst + length;
-		while (dst !is sentinel) {
-			*(dst++) = *(src++);
+		immutable fill = m_kept + length;  // Calculate size of the current window plus the bytes to be cloned.
+		auto mapped = m_buffer.put.map(fill);  // We temporarily need buffer space for both.
+		auto dst = &mapped[m_kept];  // Get a pointer to the end of the window.
+		auto src = dst - back;  // Pointer to the bytes that we want to clone.
+		while (length >= ℕ.sizeof) {
+			*cast(ℕ*) dst = *cast(ℕ*) src;
+			dst += ℕ.sizeof;
+			src += ℕ.sizeof;
+			length -= ℕ.sizeof;
+		}
+		while (length--) {
+			*dst++ = *src++;
 		}
 		moveWindow(fill);
 	}
@@ -304,27 +308,31 @@ private:
 	void inflateBlock(bool needResult)(ref const HuffmanTree tree, ref const HuffmanTree distanceTree = EMPTY_TREE)
 	{
 		immutable literalDistance = distanceTree.empty;
-		ushort token;
+		uint token;
 		while ((token = nextToken(tree)) != END_OF_BLOCK) {
 			if (token < END_OF_BLOCK) { // simple token
 				static if (needResult) {
 					inflated(cast(ubyte) token);
 				}
 			} else {
-				// The length is typically looked up in a small table, but the memory access turned out to
-				// add 19% overhead (in total runtime of a FASTA parser!) over calculating it here.
+				// Get the length of the byte stream to duplicate. Using no table lookup for trivial cases.
 				uint length = void;
 				if (token <= 264) {
 					length = token - 254;
 				} else if (token == 285) {
 					length = 258;
 				} else {
-					uint base = token - 261;
-					uint extraBits = base >> 2;
-					length = (1 << (extraBits + 2)) + 3 + (base & 3) * (1 << extraBits);
-					length += m_src.readBits!uint(extraBits);
+					token -= 257;
+					uint lengthExtra = LENGTH_EXTRA[token];
+					static if (needResult) {
+						length = LENGTH_BASE[token];
+						length += m_src.readBits!uint(lengthExtra);
+					} else {
+						m_src.skipBits(lengthExtra);
+					}
 				}
 
+				// Get another token representing the distance.
 				uint distanceCode;
 				if (literalDistance) {
 					distanceCode = m_src.readBits!5().reverseBits(5); // fixed tree
@@ -332,21 +340,10 @@ private:
 					distanceCode = nextToken(distanceTree); // dynamic tree
 				}
 
+				uint distanceExtra = DISTANCE_EXTRA[distanceCode/2];
 				static if (needResult) {
-					static immutable ushort[32] CopyDistance = 
-						[   1,     2,    3,    4,    5,    7,    9,    13,    17,    25,
-							33,    49,   65,   97,  129,  193,  257,   385,   513,   769,
-							1025,  1537, 2049, 3073, 4097, 6145, 8193, 12289, 16385, 24577,
-							32769, 49153  ];/* the last two are Deflate64 only */
-					uint distance = CopyDistance[distanceCode];
-				}
-
-				static immutable ubyte[32/2] ExtraDistanceBits =
-					[ 0,  0,  1,  2,  3, 4,  5,  6,  7,  8, 9, 10, 11, 12, 13, 14  ];/* the last is Deflate64 only */
-				uint moreBits = ExtraDistanceBits[distanceCode/2];
-
-				static if (needResult) {
-					distance += m_src.readBits!uint(moreBits);
+					uint distance = DISTANCE_BASE[distanceCode];
+					distance += m_src.readBits!uint(distanceExtra);
 
 					// byte-wise copy
 					debug(gzip) writefln("Copy of %s bytes from %s bytes back", length, distance);
@@ -354,7 +351,7 @@ private:
 					assert(length <= WINDOW_SIZE);
 					recallBytes(distance, length);
 				} else {
-					m_src.skipBits(moreBits);
+					m_src.skipBits(distanceExtra);
 				}
 			}
 		}
@@ -404,6 +401,34 @@ immutable HuffmanTree DEFAULT_TREE = HuffmanTree(chain((cast(ubyte)8).repeat.tak
                                                        (cast(ubyte)7).repeat.take( 24),
                                                        (cast(ubyte)8).repeat.take(  8)));
 immutable HuffmanTree EMPTY_TREE = HuffmanTree();
+
+immutable ushort[29] LENGTH_BASE =
+	[ 3, /* 258 */   4, /* 259 */   5, /* 257 */
+	  6, /* 261 */   7, /* 262 */   8, /* 263 */   9, /* 264 */  10,/* 260 */
+	 11, /* 266 */  13, /* 267 */  15, /* 268 */  17, /* 269 */  19,/* 265 */
+	 23, /* 271 */  27, /* 272 */  31, /* 273 */  35, /* 274 */  43,/* 270 */
+	 51, /* 276 */  59, /* 277 */  67, /* 278 */  83, /* 279 */  99,/* 275 */
+	115, /* 281 */ 131, /* 282 */ 163, /* 283 */ 195, /* 284 */ 227,/* 280 */
+	258 ];/* 285 */
+
+immutable ubyte[29] LENGTH_EXTRA =
+	[ 0, /* 258 */ 0, /* 259 */ 0, /* 260 */ 0,/* 257 */
+	  0, /* 262 */ 0, /* 263 */ 0, /* 264 */ 0,/* 261 */
+	  1, /* 266 */ 1, /* 267 */ 1, /* 268 */ 1,/* 265 */
+	  2, /* 270 */ 2, /* 271 */ 2, /* 272 */ 2,/* 269 */
+	  3, /* 274 */ 3, /* 275 */ 3, /* 276 */ 3,/* 273 */
+	  4, /* 278 */ 4, /* 279 */ 4, /* 280 */ 4,/* 277 */
+	  5, /* 282 */ 5, /* 283 */ 5, /* 284 */ 5,/* 281 */
+	  0 ];/* 285 */
+
+immutable ushort[32] DISTANCE_BASE =
+	[   1,     2,    3,    4,    5,    7,    9,    13,    17,    25,
+	   33,    49,   65,   97,  129,  193,  257,   385,   513,   769,
+	 1025,  1537, 2049, 3073, 4097, 6145, 8193, 12289, 16385, 24577,
+	32769, 49153  ];/* the last two are Deflate64 only */
+
+immutable ubyte[32/2] DISTANCE_EXTRA =
+	[ 0,  0,  1,  2,  3, 4,  5,  6,  7,  8, 9, 10, 11, 12, 13, 14  ];/* the last is Deflate64 only */
 
 struct HuffmanTree
 {
