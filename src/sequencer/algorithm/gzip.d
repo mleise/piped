@@ -19,16 +19,22 @@ import sequencer.threads;
 import core.thread;
 
 
+/**
+ * GZip files are - simply put - a header and footer around the DEFLATE algorithm. A compressed file inside
+ * a GZip file is called a member. Multiple members can appear in a single GZip archive.
+ * gzip() returns a range that iterated over each GZip member as a pair of original file name and an
+ * inflation thread, that can be passed on to other algorithms like splitLines().
+ */
 auto gzip(T)(T source)
 {
-	return SGZipRange(source.toSequencerThread());
+	return GZipRange(source.toSequencerThread());
 }
 
 
 
 private:
 
-struct SGZipRange
+struct GZipRange
 {
 private:
 	CSequencerThread m_supplier;
@@ -257,8 +263,9 @@ private:
 				HuffmanTree codeStrings = HuffmanTree(codeLength);
 
 				ushort lastToken = 0;
-				ubyte[] bitLength = null;
-				while (bitLength.length < numLiterals + numDistance) {
+				ubyte[288 + 32] bitLengths = void;
+				ℕ bitLengthsLength;
+				while (bitLengthsLength < numLiterals + numDistance) {
 					ushort token = nextToken(codeStrings);
 					uint howOften = 0;
 
@@ -278,22 +285,17 @@ private:
 					}
 
 					while (howOften--) {
-						bitLength ~= lastToken & 0xFF;
+						bitLengths[bitLengthsLength++] = cast(ubyte) lastToken;
 					}
 				}
 
-				bitLength.length = numLiterals + 32;
+				// we need to split distance lengths and bit lengths into separate arrays
+				ubyte[32] distanceLengths = bitLengths[numLiterals .. numLiterals + 32];
+				distanceLengths[numDistance .. 32] = 0;
+				bitLengths[numLiterals .. 288] = 0;
 
-				ubyte[32] distanceLength = void;
-				foreach (i; 0 .. 32) {
-					distanceLength[i] = bitLength[i + numLiterals];
-				}
-
-				bitLength.length = numLiterals;
-				bitLength.length = 288;
-
-				HuffmanTree distanceTree = HuffmanTree(distanceLength);
-				HuffmanTree tree         = HuffmanTree(bitLength);
+				HuffmanTree distanceTree = HuffmanTree(distanceLengths);
+				HuffmanTree tree         = HuffmanTree(bitLengths[0 .. 288]);
 				inflateBlock!needResult(tree, distanceTree);
 				break;
 		}
@@ -303,34 +305,25 @@ private:
 	{
 		immutable literalDistance = distanceTree.empty;
 		ushort token;
-		while (END_OF_BLOCK != (token = nextToken(tree))) {
+		while ((token = nextToken(tree)) != END_OF_BLOCK) {
 			if (token < END_OF_BLOCK) { // simple token
 				static if (needResult) {
 					inflated(cast(ubyte) token);
 				}
 			} else {
-				token -= 257;
-
-				// TODO: Check if these tables are the fastest option
-				static immutable ushort[29] CopyLength = [    3, /* 258 */   4, /* 259 */   5,/* 257 */
-					6, /* 261 */   7, /* 262 */   8, /* 263 */   9, /* 264 */  10,/* 260 */
-					11, /* 266 */  13, /* 267 */  15, /* 268 */  17, /* 269 */  19,/* 265 */
-					23, /* 271 */  27, /* 272 */  31, /* 273 */  35, /* 274 */  43,/* 270 */
-					51, /* 276 */  59, /* 277 */  67, /* 278 */  83, /* 279 */  99,/* 275 */
-					115, /* 281 */ 131, /* 282 */ 163, /* 283 */ 195, /* 284 */ 227,/* 280 */
-					258 ];/* 285 */
-				uint length = CopyLength[token];
-
-				static immutable ubyte[29] ExtraLengthBits =
-					[  0, /* 258 */ 0, /* 259 */ 0, /* 260 */ 0,/* 257 */
-						0, /* 262 */ 0, /* 263 */ 0, /* 264 */ 0,/* 261 */
-						1, /* 266 */ 1, /* 267 */ 1, /* 268 */ 1,/* 265 */
-						2, /* 270 */ 2, /* 271 */ 2, /* 272 */ 2,/* 269 */
-						3, /* 274 */ 3, /* 275 */ 3, /* 276 */ 3,/* 273 */
-						4, /* 278 */ 4, /* 279 */ 4, /* 280 */ 4,/* 277 */
-						5, /* 282 */ 5, /* 283 */ 5, /* 284 */ 5,/* 281 */
-						0 ];/* 285 */
-				length += m_src.readBits!uint(ExtraLengthBits[token]);
+				// The length is typically looked up in a small table, but the memory access turned out to
+				// add 19% overhead (in total runtime of a FASTA parser!) over calculating it here.
+				uint length = void;
+				if (token <= 264) {
+					length = token - 254;
+				} else if (token == 285) {
+					length = 258;
+				} else {
+					uint base = token - 261;
+					uint extraBits = base >> 2;
+					length = (1 << (extraBits + 2)) + 3 + (base & 3) * (1 << extraBits);
+					length += m_src.readBits!uint(extraBits);
+				}
 
 				uint distanceCode;
 				if (literalDistance) {
@@ -374,7 +367,7 @@ private:
 		auto mask = 1 << tree.instantMaxBit;
 		foreach (bits; tree.instantMaxBit .. tree.maxBits + 1) {
 			const leaf = tree[compareTo & (mask - 1)];
-			
+
 			if (leaf.numBits <= bits) {
 				assert(leaf.numBits <= tree.maxBits);
 				m_src.releaseBits(leaf.numBits);
@@ -383,8 +376,12 @@ private:
 			}
 			mask <<= 1;
 		}
-		
+          
 		throw new Exception("Invalid token");
+//		const leaf = tree[compareTo];
+//		m_src.releaseBits(leaf.numBits);
+//		debug(gzip) writefln("Read token %s", leaf.code);
+//		return leaf.code;
 	}
 
 protected:
@@ -415,11 +412,13 @@ private:
 		ushort code;
 		ubyte numBits;
 	}
+	static assert(Leaf.sizeof == 4);
 
 	ubyte minBits;
 	ubyte maxBits;
 	ubyte instantMaxBit;
 	Leaf[] leaves;
+//	Leaf[1 << 15] leaves = void;
 
 public:
 	this()() {}
@@ -446,7 +445,7 @@ public:
 			leaves = (cast(Leaf*) malloc(Leaf.sizeof * (1 << maxBits)))[0 .. 1 << maxBits];
 		}
 
-		instantMaxBit = min(cast(ubyte) 10, maxBits);
+		instantMaxBit = min(cast(ubyte) 9, maxBits);
 		ushort instantMask = cast(ushort) ((1 << instantMaxBit) - 1);
 
 		ushort code = 0;
@@ -477,6 +476,11 @@ public:
 					leaves[spread] = Leaf(i, bits);
 				}
 			}
+//			immutable mask = (1 << maxBits) - 1;
+//			immutable step = 1 << bits;
+//			for (auto spread = reverse + step; spread <= mask; spread += step) {
+//				leaves[spread] = Leaf(i, bits);
+//			}
 		}
 	}
 

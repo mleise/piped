@@ -11,8 +11,9 @@ import sequencer.algorithm.text;
 int main(string[] args)
 {
 	version(profile) {
-		string plain = "Homo_sapiens.GRCh37.67.dna_rm.chromosome.Y.fa";
-		string gz    = "Homo_sapiens.GRCh37.67.dna_rm.chromosome.Y.fa.gz";
+//		string plain = "Homo_sapiens.GRCh37.67.dna_rm.chromosome.Y.fa";
+		string plain = "xenoRefMrna.fa";
+		string gz    = plain ~ ".gz";
 	} else {
 		if (args.length < 3) {
 			stderr.writeln("You need to specify a FASTA file and its gzip comressed version.");
