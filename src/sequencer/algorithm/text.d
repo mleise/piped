@@ -53,10 +53,10 @@ public:
 		try while (true) {
 			// End or sentinel pointer
 			const e = this.peek.ptr + this.peek.length;
-			// First we skip as many blocks of size size_t that don't contain line-breaks as possible.
-			for (auto skipFast = (e - b) / size_t.sizeof; skipFast; skipFast--) {
-				if (contains!'\n'( *(cast(size_t*) b) )) break;
-				b += size_t.sizeof;
+			// First we skip as many blocks of size ℕ that don't contain line-breaks as possible.
+			for (auto skipFast = (e - b) / ℕ.sizeof; skipFast; skipFast--) {
+				if (contains!'\n'( *(cast(ℕ*) b) )) break;
+				b += ℕ.sizeof;
 			}
 			// Then we examine byte by byte and return when we find a complete line of text.
 			while (b !is e) {
@@ -80,9 +80,7 @@ public:
 			this._empty = (this.lineSize == 0);
 			// We join the supplier thread here.
 			// TODO: Allow this range to be destroyed before it is empty. (Requires notifying supply thread.)
-			if (this._empty) {
-				this.supplier.join();
-			}
+			if (this._empty) this.supplier.join();
 		}
 	}
 

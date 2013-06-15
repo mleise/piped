@@ -140,10 +140,11 @@ static assert(GZipMember.sizeof == 10);
 final class CInflateThread : CAlgorithmThread
 {
 private:
-	enum ℕ WINDOW_SIZE = 32.KiB;
+	enum WINDOW_SIZE = 32.KiB;
 	enum END_OF_BLOCK = 256;
 	enum CODE_LENGTHS = 19;
-	static immutable ubyte[CODE_LENGTHS] CODE_LENGTH_ORDER = [ 16,17,18,0,8,7,9,6,10,5,11,4,12,3,13,2,14,1,15 ];
+	static immutable ubyte[CODE_LENGTHS] CODE_LENGTH_ORDER =
+		[ 16,17,18,0,8,7,9,6,10,5,11,4,12,3,13,2,14,1,15 ];
 
 	SBufferPtr* m_src;
 	SBufferPtr* m_dst;
@@ -201,12 +202,6 @@ private:
 		auto mapped = m_buffer.put.map(fill);  // We temporarily need buffer space for both.
 		auto dst = &mapped[m_kept];  // Get a pointer to the end of the window.
 		auto src = dst - back;  // Pointer to the bytes that we want to clone.
-		while (length >= ℕ.sizeof) {
-			*cast(ℕ*) dst = *cast(ℕ*) src;
-			dst += ℕ.sizeof;
-			src += ℕ.sizeof;
-			length -= ℕ.sizeof;
-		}
 		while (length--) {
 			*dst++ = *src++;
 		}

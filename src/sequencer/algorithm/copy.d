@@ -39,8 +39,8 @@ protected:
 			// and limit it somewhat, so we don't force unneccesarily large buffers
 			immutable toCopy = min(src.length, m_maxBlockSize);
 			// now copy this block into the destination buffer and mark the bytes as processed
-			auto dst = m_buffer.mapWritable(toCopy);
-			memcpy(dst, src.ptr, toCopy);
+			auto dst = put.map(toCopy);
+			memcpy(dst.ptr, src.ptr, toCopy);
 			get.release(toCopy);
 			put.release(toCopy);
 		} catch (EndOfStreamException) {

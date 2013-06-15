@@ -67,5 +67,6 @@
     <Compile Include="..\src\sequencer\algorithm\gzip.d" />
     <Compile Include="..\src\sequencer\algorithm\text.d" />
     <Compile Include="..\src\sys\memarch.d" />
+    <Compile Include="..\src\sequencer\algorithm\consume.d" />
   </ItemGroup>
 </Project>

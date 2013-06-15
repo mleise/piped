@@ -23,12 +23,12 @@ import core.sys.posix.pthread;
 
 class EndOfStreamException : Exception
 {
-    @safe pure nothrow this(string msg, string file = __FILE__, size_t line = __LINE__, Throwable next = null)
+    @safe pure nothrow this(string msg, string file = __FILE__, ℕ line = __LINE__, Throwable next = null)
     {
         super(msg, file, line, next);
     }
 
-    @safe pure nothrow this(string msg, Throwable next, string file = __FILE__, size_t line = __LINE__)
+    @safe pure nothrow this(string msg, Throwable next, string file = __FILE__, ℕ line = __LINE__)
     {
         super(msg, file, line, next);
     }
@@ -153,7 +153,7 @@ private:
 
 	void producerStarve(ℕ count)
 	out {
-		immutable available = availableReal(Access.put);
+		immutable available = m_bptr[Access.put].queryMappable();
 		assert(available >= count, format("makeWritable: failed to make %s bytes available for put access (only %s are available)", count, available));
 	} body {
 		m_bptr[Access.put].m_max.correctUpwards(count);
@@ -178,7 +178,7 @@ private:
 			// It might have seen our request, fulfilled it and went on. Eventually it might then run out of buffer and
 			// starve, but those are two distinct cases.
 			mutuallyBlocked = m_bptr[Access.get].m_req != 0;
-			requestFulfilled = availableReal(Access.put) >= count;
+			requestFulfilled = m_bptr[Access.put].queryMappable() >= count;
 			if (!mutuallyBlocked && !requestFulfilled)
 				stderr.writefln("logical error in makeWritable(): %s/%s", m_fill, m_size);
 		} else {
@@ -199,11 +199,11 @@ private:
 			// HINT: The consumer might have starved, then locked the mutex while the producer was still filling the buffer
 			//       In that case we send it back to work right away. In fact, the producer might run out of free space
 			//       and dead-lock if we don't.
-			if (m_bptr[Access.get].m_req <= availableReal(Access.get)) {
+			if (m_bptr[Access.get].m_req <= m_bptr[Access.get].queryMappable()) {
 				m_bptr[Access.get].m_req = 0;
 				wrn++;
 				m_cond.notify();
-				if (count > availableReal(Access.put)) {
+				if (count > m_bptr[Access.put].queryMappable()) {
 					m_bptr[Access.put].m_req = count;
 					debug(circularbuffer) writeln("producer enters wait");
 					wrw++;
@@ -219,7 +219,8 @@ private:
 			if (!requestFulfilled)
 				// request must have been fulfilled by consumer
 				throw new Exception("Error in makeWritable, request was expected to be fulfilled by consumer");
-			if (count > availableReal(Access.put)) writefln("makeWritable: %s error, expected consumer to fulfill request", Access.put); 
+			if (count > m_bptr[Access.put].queryMappable())
+				writefln("makeWritable: %s error, expected consumer to fulfill request", Access.put); 
 			m_bptr[Access.put].m_req = 0;
 		}
 	}
@@ -240,8 +241,8 @@ private:
 					m_cond.wait();
 				} while (m_bptr[Access.get].m_req == count);
 			}
-			if (m_eof && count > availableReal(Access.get)) {
-				m_bptr[Access.get].m_knownMappable = availableReal(Access.get);
+			if (m_eof && count > m_bptr[Access.get].queryMappable()) {
+				m_bptr[Access.get].m_knownMappable = m_bptr[Access.get].queryMappable();
 				throw new EndOfStreamException(format("Not enough data to read %s bytes", count));
 			}
 		} else {
@@ -258,50 +259,6 @@ private:
 			} while (m_bptr[Access.get].m_req == count);
 			debug(circularbuffer) stderr.writeln("consumer exits wait");
 		}
-	}
-
-	void ensureMappable(Access acc)(immutable ℕ count)
-	out {
-		assert(availableReal(acc) >= count,
-		       format("ensureAvailable: failed to make %s bytes available for %s access", count, acc));
-	} body {
-		if (m_bptr[acc].m_knownMappable < count) {
-			// Get an update on the mappable byte count.
-			ℕ mappable = availableReal(acc);
-			if (mappable >= count) {
-				m_bptr[acc].m_knownMappable = mappable;
-			} else {
-		//		if (m_bptr[acc].delayedRemain >= count || availableReal(acc) >= count) return;
-				// Otherwise the consumer starves, so we update two variables. m_maxRead is the largest read request ever
-				// encountered and used by the buffer grow method that will be called if the producer also runs out of space now.
-				acc ? producerStarve(count) : consumerStarve(count);
-				// We now have >= count bytes available.
-				m_bptr[acc].m_knownMappable = availableReal(acc);
-			}
-		}
-	}
-
-	ubyte* map(Access acc)(immutable ℕ count)
-	{
-		ensureMappable!acc(count);
-		return m_bptr[acc].m_ptr;
-	}
-
-	ℕ availableUncommitted(immutable Access acc) const nothrow
-	out(result) {
-		assert(result <= m_size,
-		       format("availableUncommitted: available bytes (%s) exceed buffer size (%s)", result, m_size));
-	} body {
-		immutable fill = atomicLoad(m_fill);
-		return acc ? (m_size - fill) : fill;
-	}
-
-	ℕ availableReal(immutable Access acc) const nothrow
-	out(result) {
-		assert(result <= m_size,
-		       format("availableReal: available bytes (%s) exceed buffer size (%s)", result, m_size)); 
-	} body {
-		return availableUncommitted(acc) - m_bptr[acc].m_delayed;
 	}
 
 	ℕ queryFillAtomic() const nothrow
@@ -375,9 +332,6 @@ public:
 		munmap(m_buf, 2 * m_size);
 	}
 
-	const(ubyte*)  mapConsumable(ℕ count) { return map!(Access.get)(count); }
-	ubyte*         mapWritable  (ℕ count) { return map!(Access.put)(count); }
-
 	void finish()
 	{
 		m_cond.mutex.lock();
@@ -439,6 +393,26 @@ private:
 		}
 	}
 
+	void ensureMappable(immutable ℕ count)
+	out {
+		assert(queryMappable() >= count,
+		       format("ensureAvailable: failed to make %s bytes available for %s access", count, m_acc));
+	} body {
+		if (m_knownMappable >= count) return;
+
+		// Get an update on the mappable byte count.
+		ℕ mappable = queryMappable();
+		if (mappable >= count) {
+			m_knownMappable = mappable;
+		} else {
+			// Otherwise the consumer starves, so we update two variables. m_maxRead is the largest read request ever
+			// encountered and used by the buffer grow method that will be called if the producer also runs out of space now.
+			m_acc ? m_buf.producerStarve(count) : m_buf.consumerStarve(count);
+			// We now have >= count bytes available.
+			m_knownMappable = queryMappable();
+		}
+	}
+
 public:
 	void release()(immutable ℕ count)
 	in {
@@ -466,10 +440,7 @@ public:
 
 	ubyte[] mapAtLeast(immutable ℕ count)
 	{
-		if (m_acc)
-			m_buf.ensureMappable!(Access.put)(count);
-		else
-			m_buf.ensureMappable!(Access.get)(count);
+		ensureMappable(count);
 		return mapAvailable();
 	}
 
@@ -480,30 +451,24 @@ public:
 
 	T* map(T)() if (!hasIndirections!T)
 	{
-		if (m_acc)
-			m_buf.ensureMappable!(Access.put)(T.sizeof);
-		else
-			m_buf.ensureMappable!(Access.get)(T.sizeof);
+		ensureMappable(T.sizeof);
 		return cast(T*) m_ptr;
 	}
 
-	// bit-wise operations
+	// bit-wise operations...
 
 private:
 	uint m_bit;
 
 	void requireBits(uint count)
-	in { assert(count <= 64); }
+	in { assert(count <= ℕ.sizeof * 8 - 7); }
 	body {
 		// calculate required buffer space; hackish first check if the max. bits are in
-		if (m_knownMappable <= 8) {
-			if (count > 8 * m_knownMappable - m_bit) {
-				immutable requiredBytes = (count + m_bit + 7) / 8;
-				if (m_acc)
-					m_buf.ensureMappable!(Access.put)(requiredBytes);
-				else
-					m_buf.ensureMappable!(Access.get)(requiredBytes);
-			}
+		if (m_knownMappable > 8) return;
+
+		if (count > 8 * m_knownMappable - m_bit) {
+			immutable requiredBytes = (count + m_bit + 7) / 8;
+			ensureMappable(requiredBytes);
 		}
 	}
 
@@ -558,10 +523,7 @@ public:
 	/// Reads a single bit from the stream
 	bool readBit()
 	{
-		if (m_acc)
-			m_buf.ensureMappable!(Access.put)(1);
-		else
-			m_buf.ensureMappable!(Access.get)(1);
+		ensureMappable(1);
 		bool result = (*m_ptr & (1 << m_bit++)) != 0;
 		if (!(m_bit &= 7)) release(1);
 		return result;

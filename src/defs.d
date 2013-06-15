@@ -10,7 +10,12 @@ alias ℕ = size_t;
 alias ℤ = ptrdiff_t;
 
 /// Returns the current call stack as a string.
-string stackTrace() { try { throw new Exception(null); } catch (Exception e) { return e.info.toString(); } }
+string stackTrace() {
+	try
+		throw new Exception(null);
+	catch (Exception e)
+		return e.info.toString();
+}
 
 pure nothrow:
 
@@ -51,16 +56,15 @@ void correctUpwards(T)(ref T val, T newMinimum) { if (val < newMinimum) val = ne
 void drop(T)(ref T[] arr, ℕ count) { arr = arr[count .. $]; }
 
 /**
- * Template for searching a fixed value in an size_t sized memory block (i.e. 4 bytes on 32-bit, 8 byte on 64-bit)
+ * Template for searching a fixed value in an ℕ sized memory block (i.e. 4 bytes on 32-bit, 8 byte on 64-bit)
  * See: http://graphics.stanford.edu/~seander/bithacks.html#ValueInWord
  */
-bool contains(ubyte V)(size_t n)
+bool contains(ubyte V)(ℕ n)
 {
-	// This value results in 0x01 for each byte of a size_t value.
-	enum duplicator = size_t.max / 255;
-	static if (V == 0) {
+	// This value results in 0x01 for each byte of a ℕ value.
+	enum duplicator = ℕ.max / 255;
+	static if (V == 0)
 		return ((n - duplicator) & ~n & (duplicator * 0x80)) != 0;
-	} else {
+	else
 		return contains!0(n ^ (duplicator * V));
-	}
 }

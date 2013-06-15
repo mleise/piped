@@ -4,6 +4,7 @@ import core.time;
 import std.stdio;
 
 import defs;
+import sequencer.algorithm.consume;
 import sequencer.algorithm.gzip;
 import sequencer.algorithm.text;
 
@@ -36,6 +37,7 @@ int main(string[] args)
 	// TODO: make this not hang on non-gzip file
 	t1 = TickDuration.currSystemTick;
 	gcFraction = countBasesGZip(gz);
+//	foreach (fname, inflator; File(gz).gzip()) inflator.consume();
 	Δt = TickDuration.currSystemTick - t1;
 	writefln("threaded buffer system, gzipped in %4s ms: %.2f%% G and C bases", Δt.msecs, gcFraction);
 

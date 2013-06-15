@@ -10,8 +10,8 @@ version (linux) extern(C) {
 
 	// These are needed to create multiple views of the same physical memory pages in virtual memory on Linux
 	import core.sys.posix.sys.types;
-	int remap_file_pages(void *addr, size_t size, int prot, ssize_t pgoff, int flags);
-	void *mremap(void *old_address, size_t old_size, size_t new_size, int flags, ...);
+	int remap_file_pages(void *addr, ℕ size, int prot, ssize_t pgoff, int flags);
+	void *mremap(void *old_address, ℕ old_size, ℕ new_size, int flags, ...);
 	enum MREMAP_MAYMOVE = 1;
 
 }
