@@ -1,24 +1,16 @@
 module sequencer.circularbuffer;
 
 import core.atomic;
-import core.stdc.stdlib;
 import core.stdc.string;
 import core.sync.condition;
-import core.sync.mutex;
-import core.sys.posix.stdlib;
 import core.sys.posix.sys.mman;
 import std.algorithm;
 import std.stdio;
-import std.traits;
-import std.typecons;
-import sys.memarch;
-import defs;
-import core.thread;
-import core.sync.semaphore;
 import std.string;
-import std.conv;
-import core.sys.posix.sys.mman;
-import core.sys.posix.pthread;
+import std.traits;
+import sys.memarch;
+
+import defs;
 
 
 class EndOfStreamException : Exception
@@ -91,12 +83,8 @@ private:
 	void grow(ℕ optimal)
 	in {
 		assert(optimal);
-	} out {
-//		assert(cast(ubyte*) (cast(ℕ) m_buf + m_size & m_mask) is m_buf);
 	} body {
 		debug(circularbuffer) stderr.writeln("producer initiates grow");
-		if (m_bptr[0].m_buf !is &this)
-			stderr.writeln("ARRRRR");
 		immutable size = max(optimal, 2 * m_size, allocationGranularity).growToPowerOf2();
 		// we must be able to split the virtual memory in half for our mirror pages...
 		debug(circularbuffer) stderr.writefln("Growth request to %s KiB (%s)", size / 1024, Thread.getThis.name);
@@ -416,7 +404,6 @@ private:
 public:
 	void release()(immutable ℕ count)
 	in {
-		assert(count <= queryMappable());
 		assert(count <= m_knownMappable);
 	} body { 
 		m_ptr = cast(ubyte*) (cast(ℕ) m_ptr + count & m_mask);
@@ -461,8 +448,7 @@ private:
 	uint m_bit;
 
 	void requireBits(uint count)
-	in { assert(count <= ℕ.sizeof * 8 - 7); }
-	body {
+	{
 		// calculate required buffer space; hackish first check if the max. bits are in
 		if (m_knownMappable > 8) return;
 
@@ -472,50 +458,62 @@ private:
 		}
 	}
 
-	T readBitsImpl(T, bool peek)(uint count)
+	ℕ readBitsImpl(T, bool peek)(uint count) if (isUnsigned!T)
+	in { 
+		assert(T.sizeof <= ℕ.sizeof);
+		assert(count <= T.sizeof * 8);
+		assert(count <= ulong.sizeof * 8 - 7);
+	} body {
+		requireBits(count);
+
+		// select a type that can hold any value of T + 7 bits
+		static if (is(T == ubyte))
+			alias L = ushort;
+		else static if (is(T == ushort))
+			alias L = uint;
+		else
+			alias L = ulong;
+
+		ℕ value = cast(ℕ) (*cast(L*) m_ptr >> m_bit) & ((1 << count) - 1);
+		static if (!peek) releaseBits(count);
+		return value;
+	}
+	
+	auto readBitsImpl(bool peek, uint count)() if (count <= ulong.sizeof * 8 - 7)
 	{
 		requireBits(count);
 
-		// read bits
-		auto reading = m_ptr;
-		T result = *reading >> m_bit;
-		if (count < 8 - m_bit) {
-			result &= (1 << count) - 1;
-			static if (!peek) m_bit += count;
-		} else {
-			uint accu = 8 - m_bit;
-			int remaining = count - accu;
-			reading++;
-			while (remaining >= 8) {
-				result |= *(reading++) << accu;
-				accu += 8;
-				remaining -= 8;
-			}
-			result |= (*reading & ((1 << remaining) - 1)) << accu;
-			static if (!peek) {
-				release(reading - m_ptr);
-				m_bit = remaining;
-			}
-		}
-		return result;
+		// select a type that can hold count bits
+		static if (count <= 1)
+			alias L = ubyte;
+		else static if (count <= 9)
+			alias L = ushort;
+		else static if (count <= 25)
+			alias L = uint;
+		else
+			alias L = ulong;
+		enum mask = (1 << count) - 1;
+
+		L value = (*cast(L*) m_ptr >> m_bit) & mask;
+		static if (!peek) releaseBits(count);
+		return value;
 	}
-	
+
 public:
-	T peekBits(T)(uint count) if (isUnsigned!T)
-	in { assert(count <= T.sizeof * 8, "integer data type too small to hold requested bits"); }
-	body {
+	auto peekBits(T)(uint count) if (isUnsigned!T)
+	{
 		return readBitsImpl!(T, true)(count);
 	}
 
-	void skipBits(C : uint)(C count)
+	void skipBits(uint count)
 	{
 		requireBits(count);
 		releaseBits(count);
 	}
 
-	void releaseBits(C : uint)(C count)
+	void releaseBits(uint count)
 	{
-		auto cnt = count + m_bit;
+		immutable cnt = count + m_bit;
 		release(cnt / 8);
 		m_bit = cnt % 8;
 	}
@@ -532,17 +530,20 @@ public:
 	auto readBits(uint count)()
 	{
 		// select return type
-		static if (count <= 32) {
+		static if (count <= 8)
+			alias T = ubyte;
+		else static if (count <= 16)
+			alias T = ushort;
+		else static if (count <= 32)
 			alias T = uint;
-		} else static if (count <= 64) {
+		else static if (count <= 64)
 			alias T = ulong;
-		} else static assert("binary stream can only read up to 64 bits ar once");
+		else static assert("binary stream can only read up to 64 bits at once");
 		return readBitsImpl!(T, false)(count);
 	}
 
-	T readBits(T)(uint count) if (isUnsigned!T)
-	in { assert(count <= T.sizeof * 8, "integer data type too small to hold requested bits"); }
-	body {
+	auto readBits(T)(uint count) if (isUnsigned!T)
+	{
 		return readBitsImpl!(T, false)(count);
 	}
 

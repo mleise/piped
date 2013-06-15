@@ -2,21 +2,15 @@ module sequencer.algorithm.gzip;
 
 import core.atomic;
 import core.stdc.stdlib;
-import core.stdc.string;
-import std.stdio;
-import std.string;
-import etc.c.zlib;
-import std.file;
-import std.traits;
 import std.algorithm;
 import std.exception;
 import std.range;
-import std.conv;
+import std.string;
+import std.traits;
 
 import defs;
 import sequencer.circularbuffer;
 import sequencer.threads;
-import core.thread;
 
 
 /**
@@ -147,7 +141,6 @@ private:
 		[ 16,17,18,0,8,7,9,6,10,5,11,4,12,3,13,2,14,1,15 ];
 
 	SBufferPtr* m_src;
-	SBufferPtr* m_dst;
 	shared bool m_skipOver = false;
 	bool        m_lastBlock = false;
 	ℕ           m_kept = 0;
@@ -157,7 +150,6 @@ private:
 	{
 		super(supplier);
 		m_src = m_supplier.source;
-		m_dst = m_buffer.put;
 		m_autoJoin = drainsSupplier;
 	}
 
@@ -169,7 +161,7 @@ private:
 		} else {
 			// we can commit parts of the buffer that lie behind the sliding window
 			m_buffer.put.release(fill - WINDOW_SIZE);
-			m_kept = WINDOW_SIZE;
+			if (m_kept < WINDOW_SIZE) m_kept = WINDOW_SIZE;
 		}
 	}
 
@@ -266,7 +258,7 @@ private:
 				ℕ bitLengthsLength;
 				while (bitLengthsLength < numLiterals + numDistance) {
 					ushort token = nextToken(codeStrings);
-					uint howOften = 0;
+					ℕ howOften = 0;
 
 					if (token < 16) {
 						howOften = 1;
@@ -306,12 +298,10 @@ private:
 		uint token;
 		while ((token = nextToken(tree)) != END_OF_BLOCK) {
 			if (token < END_OF_BLOCK) { // simple token
-				static if (needResult) {
-					inflated(cast(ubyte) token);
-				}
+				static if (needResult) inflated(cast(ubyte) token);
 			} else {
 				// Get the length of the byte stream to duplicate. Using no table lookup for trivial cases.
-				uint length = void;
+				ℕ length = void;
 				if (token <= 264) {
 					length = token - 254;
 				} else if (token == 285) {
@@ -321,24 +311,23 @@ private:
 					uint lengthExtra = LENGTH_EXTRA[token];
 					static if (needResult) {
 						length = LENGTH_BASE[token];
-						length += m_src.readBits!uint(lengthExtra);
+						length += m_src.readBits!ubyte(lengthExtra);
 					} else {
 						m_src.skipBits(lengthExtra);
 					}
 				}
 
 				// Get another token representing the distance.
-				uint distanceCode;
-				if (literalDistance) {
+				ℕ distanceCode = void;
+				if (literalDistance)
 					distanceCode = m_src.readBits!5().reverseBits(5); // fixed tree
-				} else {
+				else
 					distanceCode = nextToken(distanceTree); // dynamic tree
-				}
 
 				uint distanceExtra = DISTANCE_EXTRA[distanceCode/2];
 				static if (needResult) {
-					uint distance = DISTANCE_BASE[distanceCode];
-					distance += m_src.readBits!uint(distanceExtra);
+					ℕ distance = DISTANCE_BASE[distanceCode];
+					distance  += m_src.readBits!ushort(distanceExtra);
 
 					// byte-wise copy
 					debug(gzip) writefln("Copy of %s bytes from %s bytes back", length, distance);
@@ -354,26 +343,28 @@ private:
 
 	ushort nextToken(ref const HuffmanTree tree)
 	{
-		immutable compareTo = m_src.peekBits!uint(tree.maxBits);
+		immutable compareTo = m_src.peekBits!ushort(15);
 
-		auto mask = 1 << tree.instantMaxBit;
-		foreach (bits; tree.instantMaxBit .. tree.maxBits + 1) {
-			const leaf = tree[compareTo & (mask - 1)];
+		version (fulltree) {
+			const leaf = tree[compareTo];
+			m_src.releaseBits(leaf.numBits);
+			debug(gzip) writefln("Read token %s", leaf.code);
+			return leaf.code;
+		} else {
+			auto mask = 1 << tree.instantMaxBit;
+			foreach (bits; tree.instantMaxBit .. tree.maxBits + 1) {
+				const leaf = tree[compareTo & (mask - 1)];
 
-			if (leaf.numBits <= bits) {
-				assert(leaf.numBits <= tree.maxBits);
-				m_src.releaseBits(leaf.numBits);
-				debug(gzip) writefln("Read token %s", leaf.code);
-				return leaf.code;
+				if (leaf.numBits <= bits) {
+					assert(leaf.numBits <= tree.maxBits);
+					m_src.releaseBits(leaf.numBits);
+					debug(gzip) writefln("Read token %s", leaf.code);
+					return leaf.code;
+				}
+				mask <<= 1;
 			}
-			mask <<= 1;
+			throw new Exception("Invalid token");
 		}
-          
-		throw new Exception("Invalid token");
-//		const leaf = tree[compareTo];
-//		m_src.releaseBits(leaf.numBits);
-//		debug(gzip) writefln("Read token %s", leaf.code);
-//		return leaf.code;
 	}
 
 protected:
@@ -423,7 +414,7 @@ immutable ushort[32] DISTANCE_BASE =
 	32769, 49153  ];/* the last two are Deflate64 only */
 
 immutable ubyte[32/2] DISTANCE_EXTRA =
-	[ 0,  0,  1,  2,  3, 4,  5,  6,  7,  8, 9, 10, 11, 12, 13, 14  ];/* the last is Deflate64 only */
+	[ 0,  0,  1,  2,  3, 4,  5,  6,  7,  8, 9, 10, 11, 12, 13, 14 ];/* the last is Deflate64 only */
 
 struct HuffmanTree
 {
@@ -436,14 +427,14 @@ private:
 
 	ubyte minBits;
 	ubyte maxBits;
-	ubyte instantMaxBit;
+	version (fulltree) {} else
+		ubyte instantMaxBit;
 	Leaf[] leaves;
-//	Leaf[1 << 15] leaves = void;
 
 public:
 	this()() {}
 
-	this(R)(R bitLengths) if ((isRandomAccessRange!R || isArray!R) && is(ElementType!R == ubyte))
+	this(R)(R bitLengths) if ((isRandomAccessRange!R || isArray!R))
 	{
 		ushort[16] bitLengthCount = 0;
 		foreach (bitLength; bitLengths) if (bitLength) {
@@ -459,14 +450,16 @@ public:
 			break;
 		}
 		enforce(maxBits > 0, "No bit lengths given for Huffman tree");
-		if (__ctfe) {
-			leaves = new Leaf[](1 << maxBits);
+		version (fulltree) {
+			immutable treeSize = 32.KiB;
 		} else {
-			leaves = (cast(Leaf*) malloc(Leaf.sizeof * (1 << maxBits)))[0 .. 1 << maxBits];
+			immutable treeSize = 1 << maxBits;
 		}
-
-		instantMaxBit = min(cast(ubyte) 9, maxBits);
-		ushort instantMask = cast(ushort) ((1 << instantMaxBit) - 1);
+		if (__ctfe) {
+			leaves = new Leaf[](treeSize);
+		} else {
+			leaves = (cast(Leaf*) malloc(Leaf.sizeof * treeSize))[0 .. treeSize];
+		}
 
 		ushort code = 0;
 		ushort[16] nextCode;
@@ -474,6 +467,11 @@ public:
 			nextCode[bits] = code;
 			code += bitLengthCount[bits];
 			code <<= 1;
+		}
+
+		version (fulltree) {} else {
+			instantMaxBit = min(cast(ubyte) 9, maxBits);
+			ushort instantMask = cast(ushort) ((1 << instantMaxBit) - 1);
 		}
 
 		foreach (ushort i; 0 .. cast(ushort) bitLengths.length) {
@@ -490,17 +488,19 @@ public:
 
 			leaves[reverse] = Leaf(i, bits);
 
-			if (bits <= instantMaxBit) {
-				ushort step = cast(ushort) (1 << bits);
-				for (ushort spread = cast(ushort) (reverse + step); spread <= instantMask; spread += step) {
+			version (fulltree) {
+				immutable step = 1 << bits;
+				for (auto spread = reverse + step; spread <= 32.KiB - 1; spread += step) {
 					leaves[spread] = Leaf(i, bits);
 				}
+			} else {
+				if (bits <= instantMaxBit) {
+					ushort step = cast(ushort) (1 << bits);
+					for (auto spread = reverse + step; spread <= instantMask; spread += step) {
+						leaves[spread] = Leaf(i, bits);
+					}
+				}
 			}
-//			immutable mask = (1 << maxBits) - 1;
-//			immutable step = 1 << bits;
-//			for (auto spread = reverse + step; spread <= mask; spread += step) {
-//				leaves[spread] = Leaf(i, bits);
-//			}
 		}
 	}
 
@@ -511,9 +511,9 @@ public:
 		}
 	}
 
-	Leaf opIndex(ℕ index) const pure nothrow
+	const(Leaf)* opIndex(ℕ index) const pure nothrow
 	{
-		return leaves[index];
+		return &leaves[index];
 	}
 
 	@property bool empty() const pure nothrow

@@ -1,9 +1,7 @@
 module sequencer.algorithm.copy;
 
 import core.stdc.string : memcpy;
-import core.thread;
 import std.algorithm    : min;
-import std.stdio;
 
 import defs;
 import sequencer.circularbuffer;
