@@ -302,7 +302,7 @@ public:
 		this.cond.mutex.lock();
 		scope(exit) this.cond.mutex.unlock();
 
-		this.bptr[1].releaseAndFlush(0);
+		this.bptr[1].commitAndFlush(0);
 		this.eof = true;
 		if (this.bptr[Access.get].req) {
 			this.bptr[Access.get].req = 0;
@@ -333,7 +333,7 @@ private:
 		return (this.acc == Access.get ? fill : this.buf.size - fill) - this.delayed;
 	}
 
-	void releaseAndFlush(in ℕ count)
+	void commitAndFlush(in ℕ count)
 	{
 		// add unflushed bytes to the count
 		ℤ diff = this.acc ? +count + this.delayed : -count - this.delayed;
@@ -374,7 +374,7 @@ private:
 	}
 
 public:
-	void release()(in ℕ count)
+	void commit()(in ℕ count)
 	in {
 		assert(count <= this.knownMappable);
 	} body { 
@@ -383,12 +383,12 @@ public:
 		if (this.delayed + count <= delayable)
 			this.delayed += count;
 		else
-			releaseAndFlush(count);
+			commitAndFlush(count);
 	}
 
-	void release(T)() if (!hasIndirections!T)
+	void commit(T)() if (!hasIndirections!T)
 	{ 
-		release(T.sizeof);
+		commit(T.sizeof);
 	}
 
 	ubyte[] mapAvailable() pure nothrow
@@ -446,7 +446,7 @@ private:
 			alias L = ulong;
 
 		ℕ value = cast(ℕ) (*cast(L*) this.ptr >> this.bit) & ((1 << count) - 1);
-		static if (!peek) releaseBits(count);
+		static if (!peek) commitBits(count);
 		return value;
 	}
 
@@ -459,13 +459,13 @@ public:
 	void skipBits(in uint count)
 	{
 		requireBits(count);
-		releaseBits(count);
+		commitBits(count);
 	}
 
-	void releaseBits(in uint count)
+	void commitBits(in uint count)
 	{
 		immutable cnt = count + this.bit;
-		release(cnt / 8);
+		commit(cnt / 8);
 		this.bit = cnt % 8;
 	}
 
@@ -474,7 +474,7 @@ public:
 	{
 		ensureMappable(1);
 		bool result = (*this.ptr & (1 << this.bit++)) != 0;
-		if (!(this.bit &= 7)) release(1);
+		if (!(this.bit &= 7)) commit(1);
 		return result;
 	}
 
@@ -500,7 +500,7 @@ public:
 
 	void skipBitsToNextByte()
 	{
-		if (this.bit) release(1);
+		if (this.bit) commit(1);
 		this.bit = 0;
 	}
 }

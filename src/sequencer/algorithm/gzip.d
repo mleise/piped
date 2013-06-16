@@ -67,31 +67,31 @@ public:
 			if (member.cm != 8)
 				throw new Exception("GZip member is not deflate compressed");
 			auto flags = member.flg;
-			this.src.release!GZipMember();
+			this.src.commit!GZipMember();
 
 			// FEXTRA
 			if (flags & 4) {
 				immutable extraLength = *this.src.map!ushort();
-				this.src.release!ushort();
-				this.src.release(extraLength);
+				this.src.commit!ushort();
+				this.src.commit(extraLength);
 			}
 
 			// FNAME
 			string fname = null;
 			if (flags & 8) {
 				fname = mapStringZ().idup;
-				this.src.release(fname.length + 1);
+				this.src.commit(fname.length + 1);
 			}
 
 			// COMMENT
 			if (flags & 16) {
 				auto comment = mapStringZ();
-				this.src.release(comment.length + 1);
+				this.src.commit(comment.length + 1);
 			}
 
 			// FHCRC
 			if (flags & 2)   
-				this.src.release!ushort();
+				this.src.commit!ushort();
 
 			auto inflator = new CInflateThread(this.supplier, false);
 			inflator.start();
@@ -100,7 +100,7 @@ public:
 			auto get = inflator.source;
 			try while (true) {
 				auto data = get.mapAtLeast(1);
-				get.release(data.length);
+				get.commit(data.length);
 			} catch (EndOfStreamException) {
 				// we want to get here quickly
 			}
@@ -108,8 +108,8 @@ public:
 				inflator.join();
 			}
 
-			this.src.release!uint();  // CRC32
-			this.src.release!uint();  // ISIZE
+			this.src.commit!uint();  // CRC32
+			this.src.commit!uint();  // ISIZE
 
 			if (result) return result;
 		} catch (EndOfStreamException) {
@@ -158,7 +158,7 @@ private:
 			this.kept = fill;
 		} else {
 			// We can commit parts of the buffer that lie behind the sliding window.
-			this.buffer.put.release(fill - WINDOW_SIZE);
+			this.buffer.put.commit(fill - WINDOW_SIZE);
 			if (this.kept < WINDOW_SIZE) this.kept = WINDOW_SIZE;
 		}
 	}
@@ -169,7 +169,7 @@ private:
 		auto sink = &this.buffer.put.map(this.kept + 1)[this.kept];
 		*sink = data;
 		// Can we can commit parts of the buffer that lie behind the sliding window ?
-		if (this.kept == WINDOW_SIZE) this.buffer.put.release(1);
+		if (this.kept == WINDOW_SIZE) this.buffer.put.commit(1);
 		// No, we are still filling the sliding window.
 		else this.kept++;
 	}
@@ -214,10 +214,10 @@ private:
 
 				// 16 bit block length
 				auto length = *this.src.map!ushort();
-				this.src.release!ushort();
+				this.src.commit!ushort();
 				// skip complementary block length
 				immutable complement = *this.src.map!ushort();
-				this.src.release!ushort();
+				this.src.commit!ushort();
 				if (length != 0xFFFF - complement)
 					throw new Exception("Literal block length and it's complement don't match");
 
@@ -226,7 +226,7 @@ private:
 					auto orig = this.src.mapAtLeast(1);
 					immutable blockSize = min(length, orig.length);
 					static if (needResult) inflated(orig[0 .. blockSize]);
-					this.src.release(blockSize);
+					this.src.commit(blockSize);
 					length -= blockSize;
 				}
 				break;
@@ -336,7 +336,7 @@ private:
 
 		version (fulltree) {
 			const leaf = tree[compareTo];
-			this.src.releaseBits(leaf.numBits);
+			this.src.commitBits(leaf.numBits);
 			debug(gzip) writefln("Read token %s", leaf.code);
 			return leaf.code;
 		} else {
@@ -346,7 +346,7 @@ private:
 
 				if (leaf.numBits <= bits) {
 					assert(leaf.numBits <= tree.maxBits);
-					this.src.releaseBits(leaf.numBits);
+					this.src.commitBits(leaf.numBits);
 					debug(gzip) writefln("Read token %s", leaf.code);
 					return leaf.code;
 				}
@@ -360,7 +360,7 @@ protected:
 	override void run()
 	{
 		// flush sliding window to buffer after decoding in any case
-		scope(exit) this.buffer.put.release(this.kept);
+		scope(exit) this.buffer.put.commit(this.kept);
 		do {
 			if (atomicLoad(this._skipOver))
 				decodeBlock!false();

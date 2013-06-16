@@ -39,8 +39,8 @@ protected:
 			// now copy this block into the destination buffer and mark the bytes as processed
 			auto dst = put.map(toCopy);
 			memcpy(dst.ptr, src.ptr, toCopy);
-			get.release(toCopy);
-			put.release(toCopy);
+			get.commit(toCopy);
+			put.commit(toCopy);
 		} catch (EndOfStreamException) {
 			// this is the expected outcome; not a single byte was left to copy
 		}

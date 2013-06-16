@@ -46,7 +46,7 @@ public:
 	in   { assert(!this._empty); }
 	body {
 		// popFront() 101: Release the buffer space we no longer need to expose through front().
-		this.get.release(this.lineSize);
+		this.get.commit(this.lineSize);
 		this.peek.drop(this.lineSize);
 		// Look for the next line-break in 'peek', eventually fetching more buffer space from our supplier.
 		auto b = this.peek.ptr;
