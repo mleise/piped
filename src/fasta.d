@@ -11,9 +11,8 @@ import sequencer.algorithm.text;
 int main(string[] args)
 {
 	version (gc_benchmark) {
-		string plain = args[1];
+		string plain = "Homo_sapiens.GRCh37.67.dna_rm.chromosome.Y.fa";
 	} else version (profile) {
-//		string plain = "Homo_sapiens.GRCh37.67.dna_rm.chromosome.Y.fa";
 		string plain = "xenoRefMrna.fa";
 		string gz    = plain ~ ".gz";
 	} else {
@@ -44,7 +43,6 @@ int main(string[] args)
 		// TODO: make this not hang on non-gzip file
 		t1 = TickDuration.currSystemTick;
 		gcFraction = countBasesGZip(gz);
-		foreach (fname, inflator; File(gz).gzip()) inflator.consume();
 		Δt = TickDuration.currSystemTick - t1;
 		writefln("threaded buffer system, gzipped in %4s ms: %.2f%% G and C bases", Δt.msecs, gcFraction);
 

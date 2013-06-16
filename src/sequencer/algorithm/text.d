@@ -13,7 +13,7 @@ import sequencer.threads;
  * Splits a source into Unix text lines. If 'keepTerminator' is set, \n will be kept on the resulting lines,
  * except maybe on the last line where it may not be in the source.
  */
-auto splitLines(T)(T source, KeepTerminator keepTerminator = KeepTerminator.no)
+auto splitLines(T)(T source, in KeepTerminator keepTerminator = KeepTerminator.no)
 {
 	return LineRange(source.toSequencerThread(), keepTerminator);
 }
@@ -31,7 +31,7 @@ private:
 
 	@disable this();
 
-	this(CSequencerThread supplier, KeepTerminator keepTerminator)
+	this(CSequencerThread supplier, in KeepTerminator keepTerminator)
 	{
 		this.supplier = supplier;
 		this.get = supplier.source;

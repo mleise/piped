@@ -69,4 +69,9 @@
     <Compile Include="..\src\sys\memarch.d" />
     <Compile Include="..\src\sequencer\algorithm\consume.d" />
   </ItemGroup>
+  <ItemGroup>
+    <None Include="..\gc_benchmark.sh">
+      <Link>gc_benchmark.sh</Link>
+    </None>
+  </ItemGroup>
 </Project>

@@ -16,16 +16,16 @@ private:
 	{
 		super(&starter);
 		name = this.classinfo.name;
-		m_buffer = SCircularBuffer(0);
+		this.buffer = SCircularBuffer(0);
 	}
 
-	~this()
+	pure nothrow ~this()
 	{
 		debug(threads) stderr.writefln("%s destroyed", name);
 	}
 	
 protected:
-	SCircularBuffer m_buffer;
+	SCircularBuffer buffer;
 
 	void starter()
 	{
@@ -38,7 +38,7 @@ protected:
 			stderr.writeln(e);
 			stderr.writeln(e.info);
 		} finally {
-			m_buffer.finish();
+			this.buffer.finish();
 			debug(threads) stderr.writefln("%s exiting", name);
 		}
 	}
@@ -46,26 +46,29 @@ protected:
 	abstract void run();
 
 public:
-	final @property SBufferPtr* source() { return m_buffer.get; }
+	final @property SBufferPtr* source() pure nothrow
+	{
+		return this.buffer.get;
+	}
 }
 
 class CFileThread : CSequencerThread
 {
 private:
-	File m_file;
+	File file;
 
 	this(File file)
 	{
-		m_file = file;
+		this.file = file;
 	}
 
 protected:
 	override void run()
 	{
-		auto put = m_buffer.put;
-		while (!m_file.eof) {
+		auto put = this.buffer.put;
+		while (!this.file.eof) {
 			auto mapped = put.map(64.KiB);
-			auto read = m_file.rawRead(mapped[0 .. 64.KiB]);
+			auto read = this.file.rawRead(mapped[0 .. 64.KiB]);
 			put.release(read.length);
 		}
 	}
@@ -74,20 +77,20 @@ protected:
 class CAlgorithmThread : CSequencerThread
 {
 protected:
-	CSequencerThread m_supplier;
-	bool m_autoJoin = true;
+	CSequencerThread supplier;
+	bool autoJoin = true;
 
 	this(CSequencerThread supplier)
 	{
-		m_supplier = supplier;
+		this.supplier = supplier;
 	}
 
 	override void starter()
 	{
 		// TODO: handle both cases: supplier threw exception, we threw exception
-		if (m_autoJoin) scope(exit) {
-			debug(threads) stderr.writefln("%s joining %s", name, m_supplier.name);
-			m_supplier.join();
+		if (this.autoJoin) scope(exit) {
+			debug(threads) stderr.writefln("%s joining %s", name, this.supplier.name);
+			this.supplier.join();
 		}
 		super.starter();
 	}

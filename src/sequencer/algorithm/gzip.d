@@ -31,16 +31,15 @@ private:
 struct GZipRange
 {
 private:
-	CSequencerThread m_supplier;
-	SBufferPtr* m_src;
-	bool delegate(const(char)[] fileName) m_filter;
+	CSequencerThread supplier;
+	SBufferPtr* src;
 
 	@disable this();
 
-	this(CSequencerThread supplier)
+	this(CSequencerThread supplier) pure nothrow
 	{
-		m_supplier = supplier;
-		m_src      = supplier.source;
+		this.supplier = supplier;
+		this.src      = supplier.source;
 	}
 
 	const(char)[] mapStringZ()
@@ -49,7 +48,7 @@ private:
 		ubyte* p, e;
 		do {
 			ℕ pos = strz.length;
-			strz = m_src.mapAtLeast(strz.length + 1);
+			strz = this.src.mapAtLeast(strz.length + 1);
 			p = strz.ptr + pos;
 			e = strz.ptr + strz.length;
 			while (p !is e && *p != 0) { p++; }
@@ -58,43 +57,43 @@ private:
 	}
 
 public:
-	int opApply(int delegate(string fname, CInflateThread inflator) dg)
+	int opApply(in int delegate(string fname, CInflateThread inflator) dg)
 	{
 		try while (true) {
 			// process each gzip member
-			auto member = m_src.map!GZipMember();
+			auto member = this.src.map!GZipMember();
 			if (member.id != GZipMember.init.id)
 				throw new Exception("Not a gzip member");
 			if (member.cm != 8)
 				throw new Exception("GZip member is not deflate compressed");
 			auto flags = member.flg;
-			m_src.release!GZipMember();
+			this.src.release!GZipMember();
 
 			// FEXTRA
 			if (flags & 4) {
-				immutable extraLength = *m_src.map!ushort();
-				m_src.release!ushort();
-				m_src.release(extraLength);
+				immutable extraLength = *this.src.map!ushort();
+				this.src.release!ushort();
+				this.src.release(extraLength);
 			}
 
 			// FNAME
 			string fname = null;
 			if (flags & 8) {
 				fname = mapStringZ().idup;
-				m_src.release(fname.length + 1);
+				this.src.release(fname.length + 1);
 			}
 
 			// COMMENT
 			if (flags & 16) {
 				auto comment = mapStringZ();
-				m_src.release(comment.length + 1);
+				this.src.release(comment.length + 1);
 			}
 
 			// FHCRC
 			if (flags & 2)   
-				m_src.release!ushort();
+				this.src.release!ushort();
 
-			auto inflator = new CInflateThread(m_supplier, false);
+			auto inflator = new CInflateThread(this.supplier, false);
 			inflator.start();
 			immutable result = dg(fname, inflator);
 			inflator.skipOver();
@@ -109,8 +108,8 @@ public:
 				inflator.join();
 			}
 
-			m_src.release!uint();  // CRC32
-			m_src.release!uint();  // ISIZE
+			this.src.release!uint();  // CRC32
+			this.src.release!uint();  // ISIZE
 
 			if (result) return result;
 		} catch (EndOfStreamException) {
@@ -140,63 +139,57 @@ private:
 	static immutable ubyte[CODE_LENGTHS] CODE_LENGTH_ORDER =
 		[ 16,17,18,0,8,7,9,6,10,5,11,4,12,3,13,2,14,1,15 ];
 
-	SBufferPtr* m_src;
-	shared bool m_skipOver = false;
-	bool        m_lastBlock = false;
-	ℕ           m_kept = 0;
-	bool        m_join = false;
+	SBufferPtr* src;
+	shared bool _skipOver  = false;
+	bool        lastBlock  = false;
+	ℕ           kept       = 0;
 
-	this(CSequencerThread supplier, bool drainsSupplier)
+	this(CSequencerThread supplier, in bool drainsSupplier)
 	{
 		super(supplier);
-		m_src = m_supplier.source;
-		m_autoJoin = drainsSupplier;
+		this.src = supplier.source;
+		this.autoJoin = drainsSupplier;
 	}
 
-	void moveWindow(ℕ fill)
+	void moveWindow(in ℕ fill)
 	{
 		if (fill <= WINDOW_SIZE) {
-			// we are still filling the sliding window
-			m_kept = fill;
+			// We are still filling the sliding window.
+			this.kept = fill;
 		} else {
-			// we can commit parts of the buffer that lie behind the sliding window
-			m_buffer.put.release(fill - WINDOW_SIZE);
-			if (m_kept < WINDOW_SIZE) m_kept = WINDOW_SIZE;
+			// We can commit parts of the buffer that lie behind the sliding window.
+			this.buffer.put.release(fill - WINDOW_SIZE);
+			if (this.kept < WINDOW_SIZE) this.kept = WINDOW_SIZE;
 		}
 	}
 
-	void inflated(ubyte data)
+	void inflated(in ubyte data)
 	{
-		// write to the position behind what we kept as the sliding window
-		auto sink = &m_buffer.put.map(m_kept + 1)[m_kept];
+		// Write to the position behind what we kept as the sliding window.
+		auto sink = &this.buffer.put.map(this.kept + 1)[this.kept];
 		*sink = data;
-		if (m_kept == WINDOW_SIZE) {
-			// we can commit parts of the buffer that lie behind the sliding window
-			m_buffer.put.release(1);
-		} else {
-			// we are still filling the sliding window
-			m_kept++;
-		}
+		// Can we can commit parts of the buffer that lie behind the sliding window ?
+		if (this.kept == WINDOW_SIZE) this.buffer.put.release(1);
+		// No, we are still filling the sliding window.
+		else this.kept++;
 	}
 
-	void inflated(ubyte[] data)
+	void inflated(in ubyte[] data)
 	{
 		// write to the position behind what we kept as the sliding window
-		auto fill = m_kept + data.length;
-		auto sink = &m_buffer.put.map(fill)[m_kept];
+		auto fill = this.kept + data.length;
+		auto sink = &this.buffer.put.map(fill)[this.kept];
 		memcpy(sink, data.ptr, data.length);
 		moveWindow(fill);
 	}
 
-	void recallBytes(ℕ back, ℕ length)
+	void recallBytes(in ℕ back, ℕ length)
 	{
-		immutable fill = m_kept + length;  // Calculate size of the current window plus the bytes to be cloned.
-		auto mapped = m_buffer.put.map(fill);  // We temporarily need buffer space for both.
-		auto dst = &mapped[m_kept];  // Get a pointer to the end of the window.
+		immutable fill = this.kept + length;  // Calculate size of the current window plus the bytes to be cloned.
+		auto mapped = this.buffer.put.map(fill);  // We temporarily need buffer space for both.
+		auto dst = &mapped[this.kept];  // Get a pointer to the end of the window.
 		auto src = dst - back;  // Pointer to the bytes that we want to clone.
-		while (length--) {
-			*dst++ = *src++;
-		}
+		while (length--) *dst++ = *src++;
 		moveWindow(fill);
 	}
 
@@ -204,38 +197,36 @@ private:
 	 * Causes the thread to read any remaining blocks as fast as possible without providing output.
 	 * The thread is then joined automatically, since its work is done.
 	 */
-	void skipOver()
+	void skipOver() pure nothrow
 	{
-		atomicStore(m_skipOver, true);
+		atomicStore(this._skipOver, true);
 	}
 
 	void decodeBlock(bool needResult)()
 	{
-		m_lastBlock = m_src.readBit();
-		immutable mode = m_src.readBits!2();
-		debug(gzip) writefln("block - last: %s, mode: %s", m_lastBlock, mode);
+		this.lastBlock = this.src.readBit();
+		immutable mode = this.src.readBits!2();
+		debug(gzip) writefln("block - last: %s, mode: %s", this.lastBlock, mode);
 
 		final switch (mode) {
 			case 0:  // literal data
-				m_src.skipBitsToNextByte();
+				this.src.skipBitsToNextByte();
 
 				// 16 bit block length
-				auto length = *m_src.map!ushort();
-				m_src.release!ushort();
+				auto length = *this.src.map!ushort();
+				this.src.release!ushort();
 				// skip complementary block length
-				immutable complement = *m_src.map!ushort();
-				m_src.release!ushort();
+				immutable complement = *this.src.map!ushort();
+				this.src.release!ushort();
 				if (length != 0xFFFF - complement)
 					throw new Exception("Literal block length and it's complement don't match");
 
 				// copy
 				while (length) {
-					auto orig = m_src.mapAtLeast(1);
+					auto orig = this.src.mapAtLeast(1);
 					immutable blockSize = min(length, orig.length);
-					static if (needResult) {
-						inflated(orig[0 .. blockSize]);
-					}
-					m_src.release(blockSize);
+					static if (needResult) inflated(orig[0 .. blockSize]);
+					this.src.release(blockSize);
 					length -= blockSize;
 				}
 				break;
@@ -243,14 +234,13 @@ private:
 				inflateBlock!needResult(DEFAULT_TREE);
 				break;
 			case 2:  // dynamic huffman
-				immutable numLiterals   = 257 + m_src.readBits!5();
-				immutable numDistance   =   1 + m_src.readBits!5();
-				immutable numCodeLength =   4 + m_src.readBits!4();
+				immutable numLiterals   = 257 + this.src.readBits!5();
+				immutable numDistance   =   1 + this.src.readBits!5();
+				immutable numCodeLength =   4 + this.src.readBits!4();
 
 				ubyte[CODE_LENGTHS] codeLength = 0;
-				foreach (i; 0 .. numCodeLength) {
-					codeLength[CODE_LENGTH_ORDER[i]] = cast(ubyte) m_src.readBits!3();
-				}
+				foreach (i; 0 .. numCodeLength)
+					codeLength[CODE_LENGTH_ORDER[i]] = cast(ubyte) this.src.readBits!3();
 				HuffmanTree codeStrings = HuffmanTree(codeLength);
 
 				ushort lastToken = 0;
@@ -264,20 +254,19 @@ private:
 						howOften = 1;
 						lastToken = token;
 					} else if (token == 16) {
-						howOften = 3 + m_src.readBits!2();
+						howOften = 3 + this.src.readBits!2();
 					} else if (token == 17) {
-						howOften = 3 + m_src.readBits!3();
+						howOften = 3 + this.src.readBits!3();
 						lastToken = 0;
 					} else if (token == 18) {
-						howOften = 11 + m_src.readBits!7();
+						howOften = 11 + this.src.readBits!7();
 						lastToken = 0;
 					} else {
 						throw new Exception("Invalid data");
 					}
 
-					while (howOften--) {
+					while (howOften--)
 						bitLengths[bitLengthsLength++] = cast(ubyte) lastToken;
-					}
 				}
 
 				// we need to split distance lengths and bit lengths into separate arrays
@@ -311,23 +300,23 @@ private:
 					uint lengthExtra = LENGTH_EXTRA[token];
 					static if (needResult) {
 						length = LENGTH_BASE[token];
-						length += m_src.readBits!ubyte(lengthExtra);
+						length += this.src.readBits!ubyte(lengthExtra);
 					} else {
-						m_src.skipBits(lengthExtra);
+						this.src.skipBits(lengthExtra);
 					}
 				}
 
 				// Get another token representing the distance.
 				ℕ distanceCode = void;
 				if (literalDistance)
-					distanceCode = m_src.readBits!5().reverseBits(5); // fixed tree
+					distanceCode = this.src.readBits!5().reverseBits(5); // fixed tree
 				else
 					distanceCode = nextToken(distanceTree); // dynamic tree
 
 				uint distanceExtra = DISTANCE_EXTRA[distanceCode/2];
 				static if (needResult) {
 					ℕ distance = DISTANCE_BASE[distanceCode];
-					distance  += m_src.readBits!ushort(distanceExtra);
+					distance  += this.src.readBits!ushort(distanceExtra);
 
 					// byte-wise copy
 					debug(gzip) writefln("Copy of %s bytes from %s bytes back", length, distance);
@@ -335,7 +324,7 @@ private:
 					assert(length <= WINDOW_SIZE);
 					recallBytes(distance, length);
 				} else {
-					m_src.skipBits(distanceExtra);
+					this.src.skipBits(distanceExtra);
 				}
 			}
 		}
@@ -343,11 +332,11 @@ private:
 
 	ushort nextToken(ref const HuffmanTree tree)
 	{
-		immutable compareTo = m_src.peekBits!ushort(15);
+		immutable compareTo = this.src.peekBits!ushort(15);
 
 		version (fulltree) {
 			const leaf = tree[compareTo];
-			m_src.releaseBits(leaf.numBits);
+			this.src.releaseBits(leaf.numBits);
 			debug(gzip) writefln("Read token %s", leaf.code);
 			return leaf.code;
 		} else {
@@ -357,7 +346,7 @@ private:
 
 				if (leaf.numBits <= bits) {
 					assert(leaf.numBits <= tree.maxBits);
-					m_src.releaseBits(leaf.numBits);
+					this.src.releaseBits(leaf.numBits);
 					debug(gzip) writefln("Read token %s", leaf.code);
 					return leaf.code;
 				}
@@ -371,14 +360,13 @@ protected:
 	override void run()
 	{
 		// flush sliding window to buffer after decoding in any case
-		scope(exit) m_buffer.put.release(m_kept);
+		scope(exit) this.buffer.put.release(this.kept);
 		do {
-			if (atomicLoad(m_skipOver)) {
+			if (atomicLoad(this._skipOver))
 				decodeBlock!false();
-			} else {
+			else
 				decodeBlock!true();
-			}
-		} while (!m_lastBlock);
+		} while (!this.lastBlock);
 	}
 }
 
@@ -450,16 +438,14 @@ public:
 			break;
 		}
 		enforce(maxBits > 0, "No bit lengths given for Huffman tree");
-		version (fulltree) {
+		version (fulltree)
 			immutable treeSize = 32.KiB;
-		} else {
+		else
 			immutable treeSize = 1 << maxBits;
-		}
-		if (__ctfe) {
+		if (__ctfe)
 			leaves = new Leaf[](treeSize);
-		} else {
+		else
 			leaves = (cast(Leaf*) malloc(Leaf.sizeof * treeSize))[0 .. treeSize];
-		}
 
 		ushort code = 0;
 		ushort[16] nextCode;
@@ -490,15 +476,13 @@ public:
 
 			version (fulltree) {
 				immutable step = 1 << bits;
-				for (auto spread = reverse + step; spread <= 32.KiB - 1; spread += step) {
+				for (auto spread = reverse + step; spread <= 32.KiB - 1; spread += step)
 					leaves[spread] = Leaf(i, bits);
-				}
 			} else {
 				if (bits <= instantMaxBit) {
 					ushort step = cast(ushort) (1 << bits);
-					for (auto spread = reverse + step; spread <= instantMask; spread += step) {
+					for (auto spread = reverse + step; spread <= instantMask; spread += step)
 						leaves[spread] = Leaf(i, bits);
-					}
 				}
 			}
 		}
@@ -506,13 +490,14 @@ public:
 
 	~this()
 	{
-		if (!__ctfe) {
-			free(leaves.ptr);
-		}
+		if (!__ctfe) free(leaves.ptr);
 	}
 
-	const(Leaf)* opIndex(ℕ index) const pure nothrow
-	{
+	const(Leaf)* opIndex(in ℕ index) const pure nothrow
+	in {
+		version (fulltree) assert(index < 32.KiB);
+		else               assert(index < (1 << maxBits));
+	} body {
 		return &leaves[index];
 	}
 
@@ -522,7 +507,7 @@ public:
 	}
 }
 
-T reverseBits(T)(T value, uint count) if (isUnsigned!T)
+T reverseBits(T)(T value, in uint count) pure nothrow if (isUnsigned!T)
 in { assert(value < (1 << count)); }
 body {
 	T result = 0;
