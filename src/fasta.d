@@ -4,14 +4,15 @@ import core.time;
 import std.stdio;
 
 import defs;
-import sequencer.algorithm.consume;
 import sequencer.algorithm.gzip;
 import sequencer.algorithm.text;
 
 
 int main(string[] args)
 {
-	version(profile) {
+	version (gc_benchmark) {
+		string plain = args[1];
+	} else version (profile) {
 //		string plain = "Homo_sapiens.GRCh37.67.dna_rm.chromosome.Y.fa";
 		string plain = "xenoRefMrna.fa";
 		string gz    = plain ~ ".gz";
@@ -28,23 +29,30 @@ int main(string[] args)
 	real gcFraction;
 	
 	// some tests...
-	writeln("Counting bases using different line reading approaches...");
-	t1 = TickDuration.currSystemTick;
-	gcFraction = countBasesThreaded(plain);
-	Δt = TickDuration.currSystemTick - t1;
-	writefln("threaded buffer system          in %4s ms: %.2f%% G and C bases", Δt.msecs, gcFraction);
+	version (gc_benchmark) {
+		gcFraction = countBasesThreaded(plain);
+		writefln("%.3f %% G and C bases", gcFraction);
+	} else {
+		import sequencer.algorithm.consume;
+		writeln("Counting bases using different line reading approaches...");
 
-	// TODO: make this not hang on non-gzip file
-	t1 = TickDuration.currSystemTick;
-	gcFraction = countBasesGZip(gz);
-//	foreach (fname, inflator; File(gz).gzip()) inflator.consume();
-	Δt = TickDuration.currSystemTick - t1;
-	writefln("threaded buffer system, gzipped in %4s ms: %.2f%% G and C bases", Δt.msecs, gcFraction);
+		t1 = TickDuration.currSystemTick;
+		gcFraction = countBasesThreaded(plain);
+		Δt = TickDuration.currSystemTick - t1;
+		writefln("threaded buffer system          in %4s ms: %.2f%% G and C bases", Δt.msecs, gcFraction);
 
-	t1 = TickDuration.currSystemTick;
-	gcFraction = countBasesPhobos(plain);
-	Δt = TickDuration.currSystemTick - t1;
-	writefln("File.byLine                     in %4s ms: %.2f%% G and C bases", Δt.msecs, gcFraction);
+		// TODO: make this not hang on non-gzip file
+		t1 = TickDuration.currSystemTick;
+		gcFraction = countBasesGZip(gz);
+		foreach (fname, inflator; File(gz).gzip()) inflator.consume();
+		Δt = TickDuration.currSystemTick - t1;
+		writefln("threaded buffer system, gzipped in %4s ms: %.2f%% G and C bases", Δt.msecs, gcFraction);
+
+		t1 = TickDuration.currSystemTick;
+		gcFraction = countBasesPhobos(plain);
+		Δt = TickDuration.currSystemTick - t1;
+		writefln("File.byLine                     in %4s ms: %.2f%% G and C bases", Δt.msecs, gcFraction);
+	}
 	return 0;
 }
 
