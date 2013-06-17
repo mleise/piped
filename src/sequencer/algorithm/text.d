@@ -37,7 +37,7 @@ private:
 		this.get = supplier.source;
 		this.removeTerminator = (keepTerminator == KeepTerminator.no);
 		this.supplier.addUser();
-		popFront();
+		this.popFront();
 	}
 
 public:
@@ -58,7 +58,7 @@ public:
 		try while (true) {
 			// End or sentinel pointer
 			const e = this.peek.ptr + this.peek.length;
-			// First we skip as many blocks of size ℕ that don't contain line-breaks as possible.
+			// First we skip as many blocks of machine word size that don't contain line-breaks as possible.
 			for (auto skipFast = (e - b) / ℕ.sizeof; skipFast; skipFast--) {
 				if (contains!'\n'( *(cast(ℕ*) b) )) break;
 				b += ℕ.sizeof;
@@ -67,8 +67,7 @@ public:
 			while (b !is e) {
 				if (*b == '\n') {
 					this.lineLength = this.lineSize = b - this.peek.ptr + 1;
-					if (this.removeTerminator)
-						this.lineLength--;
+					this.lineLength -= this.removeTerminator;
 					return;
 				}
 				b++;

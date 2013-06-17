@@ -32,8 +32,11 @@ protected:
 	void starter()
 	{
 		try {
-			debug(threads) stderr.writefln("%s starting", name);
-			run();
+			debug(threads) stderr.writefln("starting %s", name);
+			this.run();
+		} catch (ProducerStarvedException) {
+			// Most of the time the producing thread can just stop running as well when the consumer quits.
+			debug(threads) stderr.writeln(name ~ " caught a ProducerStarvedException.");
 		} catch (AssertError e) {
 			// In D we shouldn't try to catch asserts, but otherwise only asserts in the
 			// main thread get printed to stderr.
@@ -41,7 +44,7 @@ protected:
 			stderr.writeln(e.info);
 		} finally {
 			this.buffer.put.finish();
-			debug(threads) stderr.writefln("%s exiting", name);
+			debug(threads) stderr.writefln("stopping %s", name);
 		}
 	}
 
@@ -62,7 +65,7 @@ public:
 	in { assert(this.users || !this.isRunning, "start() was called directly. Use addUser()"); }
 	body {
 		this.users++;
-		if (this.users == 1) start();
+		if (this.users == 1) this.start();
 	}
 
 	/**
@@ -73,7 +76,10 @@ public:
 	in { assert(this.users, "removeUser() called without starting the thread first"); }
 	body {
 		// When no algorithm makes use of us any more, we can abort.
-		if (this.users == 1) abort(this);
+		if (this.users == 1) {
+			debug(threads) stderr.writefln("aborting %s", name);
+			abort(this);
+		}
 		this.users--;
 		if (this.users == 0) this.join();
 	}
@@ -113,14 +119,13 @@ protected:
 		try {
 			super.starter();
 		} finally {
-//			this.supplier.source.finish();
 			this.supplier.removeUser();
 		}
 	}
 
 	this(CSequencerThread supplier)
 	{
-		super(this.classinfo.name ~ " (from: " ~ supplier.name ~ ")");
+		super(this.classinfo.name ~ " (using: " ~ supplier.name ~ ")");
 		this.supplier = supplier;
 	}
 }

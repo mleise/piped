@@ -98,23 +98,16 @@ public:
 			// FHCRC
 			if (flags & 2) this.src.commit!ushort();
 
-			int result;
-			{
-				auto inflator = new CInflateThread(this.supplier);
-				inflator.addUser();
-				scope(exit) inflator.removeUser();
+			auto inflator = new CInflateThread(this.supplier);
 
-				// Pass this thread into the foreach loop and get the result.
-				result = dg(fname, inflator);
-
-				// Skip over any unused data of this inflator quickly.
-				inflator.skipOver();
-			}
+			// Pass this thread into the foreach loop and get the result.
+			if (auto result = dg(fname, inflator)) return result;
+			
+			// Skip over any unused data of this inflator quickly.
+			inflator.skipOver();
 
 			this.src.commit!uint();  // CRC32
 			this.src.commit!uint();  // ISIZE
-
-			if (result) return result;
 		} catch (ConsumerStarvedException) {
 			// this is the expected outcome after processing all gzip members
 		}
@@ -146,12 +139,6 @@ private:
 	shared bool _skipOver  = false;
 	bool        lastBlock  = false;
 	ℕ           kept       = 0;
-
-	this(CSequencerThread supplier)
-	{
-		super(supplier);
-		this.src = supplier.source;
-	}
 
 	void moveWindow(in ℕ fill)
 	{
@@ -370,6 +357,13 @@ protected:
 			else
 				decodeBlock!true();
 		} while (!this.lastBlock);
+	}
+
+public:
+	this(CSequencerThread supplier)
+	{
+		super(supplier);
+		this.src = supplier.source;
 	}
 }
 

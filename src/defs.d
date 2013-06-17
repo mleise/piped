@@ -27,7 +27,7 @@ pure:
 T alignPtrToNextMultipleOfPowerOfTwoValue(T)(in T ptr, in ℕ pot) if (isPointer!T)
 in { assert(pot > 0 && pot.isPowerOf2); }
 body { return cast(T) ((cast(ℕ) ptr + (pot - 1)) & -pot); }
-unittest { assert(growPtrToNextMultipleOfPowerOfTwoValue(cast(void*) 65, 64) == cast(void*) 128); }
+unittest { assert(alignPtrToNextMultipleOfPowerOfTwoValue(cast(void*) 65, 64) == cast(void*) 128); }
 
 @safe:
 
@@ -63,12 +63,12 @@ void drop(T)(ref T[] arr, ℕ count) { arr = arr[count .. $]; }
  * Template for searching a fixed value in an ℕ sized memory block (i.e. 4 bytes on 32-bit, 8 byte on 64-bit)
  * See: http://graphics.stanford.edu/~seander/bithacks.html#ValueInWord
  */
-bool contains(ubyte V)(in ℕ n)
+auto contains(ubyte V)(in ℕ n)
 {
 	// This value results in 0x01 for each byte of a ℕ value.
-	enum duplicator = ℕ.max / 255;
+	enum ones = ℕ.max / 255;
 	static if (V == 0)
-		return ((n - duplicator) & ~n & (duplicator * 0x80)) != 0;
+		return (n - ones) & ~n & (ones * 0x80);
 	else
-		return contains!0(n ^ (duplicator * V));
+		return contains!0(n ^ (ones * V));
 }

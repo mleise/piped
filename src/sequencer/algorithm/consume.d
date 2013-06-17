@@ -18,10 +18,11 @@ void consume(T)(T source)
 	}
 }
 
-//void abort(T)(T source)
-//{
-//	auto consumable = source.toSequencerThread();
-//	consumable.source.finish();
-//	consumable.join();
-//}
-alias abort = consume;
+void abort(T)(T source)
+{
+	auto consumable = source.toSequencerThread();
+	consumable.addUser();
+	scope(exit) consumable.removeUser();
+
+	consumable.source.finish();
+}

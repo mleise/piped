@@ -15,15 +15,14 @@ int main(string[] args)
 	} else version (profile) {
 		string plain = "Homo_sapiens.GRCh37.67.dna_rm.chromosome.Y.fa";
 //		string plain = "xenoRefMrna.fa";
-		string gz    = plain ~ ".gz";
 	} else {
-		if (args.length < 3) {
-			stderr.writeln("You need to specify a FASTA file and its gzip comressed version.");
+		if (args.length < 2) {
+			stderr.writeln("You need to specify a FASTA file (which has a .gz version as well).");
 			return 1;
 		}
 		string plain = args[1];
-		string gz    = args[2];
 	}
+	string gz = plain ~ ".gz";
 
 	TickDuration t1, Δt;
 	real gcFraction;
@@ -69,7 +68,6 @@ real countBasesGZip(string fname)
 {
 	foreach (fname, inflator; File(fname).gzip()) {
 		auto lines = inflator.splitLines(KeepTerminator.no);
-		// TODO: Do I properly handle early breaks here?
 		return countBasesImpl(lines);
 	}
 	return 0;
