@@ -13,7 +13,20 @@ import sys.memarch;
 import defs;
 
 
-class EndOfStreamException : Exception
+class ConsumerStarvedException : Exception
+{
+    @safe pure nothrow this(string msg, string file = __FILE__, ℕ line = __LINE__, Throwable next = null)
+    {
+        super(msg, file, line, next);
+    }
+
+    @safe pure nothrow this(string msg, Throwable next, string file = __FILE__, ℕ line = __LINE__)
+    {
+        super(msg, file, line, next);
+    }
+}
+
+class ProducerStarvedException : Exception
 {
     @safe pure nothrow this(string msg, string file = __FILE__, ℕ line = __LINE__, Throwable next = null)
     {
@@ -65,7 +78,6 @@ private:
 	ℕ             size;  /// published buffer size (excluding mirror pages)
 	shared ℕ      fill;  /// amount unprocessed (unread) data available to the consumer
 	Condition     cond;
-	shared bool   eof;
 	ℕ             heat;
 
 	/**
@@ -143,19 +155,25 @@ private:
 		if (!mutuallyBlocked) {
 			// no, so we have a chance of resolving this by waiting for the consumer to free some buffer space
 			debug(circularbuffer) writefln("producer is out of buffer space and asks consumer for %s bytes", count);
-			this.bptr[Access.put].req = count;
-			// Now we wait for the consumer to either consume enough or starve. Either way it signals us to take action.
-			debug(circularbuffer) writeln("producer enters wait");
-			do {
-				this.cond.wait();
-			} while (this.bptr[Access.put].req == count);
-			debug(circularbuffer) writeln("producer exits wait");
+			if (!this.bptr[Access.get].finished) {
+				this.bptr[Access.put].req = count;
+				// Now we wait for the consumer to either consume enough or starve. Either way it signals us to take action.
+				debug(circularbuffer) writeln("producer enters wait");
+				do {
+					this.cond.wait();
+				} while (this.bptr[Access.put].req == count);
+				debug(circularbuffer) writeln("producer exits wait");
+			}
+			if (this.bptr[Access.get].finished) {
+				this.bptr[Access.put].knownMappable = this.bptr[Access.put].queryMappable();
+				throw new ProducerStarvedException("Consumer has finished early.");
+			}
 			// HINT: At this point, the consumer isn't neccessarily starving!
 			// It might have seen our request, fulfilled it and went on. Eventually it might then run out of buffer and
 			// starve, but those are two distinct cases.
 			mutuallyBlocked = this.bptr[Access.get].req != 0;
 			requestFulfilled = this.bptr[Access.put].queryMappable() >= count;
-			if (!mutuallyBlocked && !requestFulfilled)
+			debug(circularbuffer) if (!mutuallyBlocked && !requestFulfilled)
 				stderr.writefln("logical error in makeWritable(): %s/%s", this.fill, this.size);
 		}
 
@@ -205,15 +223,15 @@ private:
 
 		bool mutuallyBlocked = this.bptr[Access.put].req != 0;
 		if (!mutuallyBlocked) {
-			if (!this.eof) {
+			if (!this.bptr[Access.put].finished) {
 				this.bptr[Access.get].req = count;
 				do {
 					this.cond.wait();
 				} while (this.bptr[Access.get].req == count);
 			}
-			if (this.eof && count > this.bptr[Access.get].queryMappable()) {
+			if (this.bptr[Access.put].finished && count > this.bptr[Access.get].queryMappable()) {
 				this.bptr[Access.get].knownMappable = this.bptr[Access.get].queryMappable();
-				throw new EndOfStreamException(format("Not enough data to read %s bytes", count));
+				throw new ConsumerStarvedException(format("Not enough data to read %s bytes", count));
 			}
 		} else {
 			debug(circularbuffer) stderr.writeln("consumer -> producer: we are both starved");
@@ -297,19 +315,6 @@ public:
 		munmap(this.buf, 2 * this.size);
 	}
 
-	void finish()
-	{
-		this.cond.mutex.lock();
-		scope(exit) this.cond.mutex.unlock();
-
-		this.bptr[1].commitAndFlush(0);
-		this.eof = true;
-		if (this.bptr[Access.get].req) {
-			this.bptr[Access.get].req = 0;
-			this.cond.notify();
-		}
-	}
-
 	@property SBufferPtr* get() pure nothrow { return &this.bptr[0]; }
 	@property SBufferPtr* put() pure nothrow { return &this.bptr[1]; }
 }
@@ -324,8 +329,9 @@ private:
 	ℕ                delayed;        /// To minimize thread synchronization, reads or writes up to this amount of bytes are cached and invisible to the other thread. Currently this is at most 1 KiB.
 	shared ℕ         req;            /// Set to the current request in bytes when starving.
 	ℕ                max;            /// Longest request ever made in bytes; used to calculate buffer requirements.
-	Access           acc;
-	SBufferPtr*      counterPart;
+	Access           acc;            /// The buffer access mode of this pointer (get or put).
+	SBufferPtr*      counterPart;    /// The other buffer pointer.
+	bool             finished;       /// Set by the user of this pointer to signal either the end of produced data, or that no more data will be consumed.
 
 	ℕ queryMappable() const pure nothrow
 	{
@@ -413,9 +419,20 @@ public:
 		return cast(T*) this.ptr;
 	}
 
-	// bit-wise operations...
+	void finish()
+	{
+		this.buf.cond.mutex.lock();
+		scope(exit) this.buf.cond.mutex.unlock();
 
-private:
+		this.commitAndFlush(0);
+		this.finished = true;
+		if (this.counterPart.req) {
+			this.counterPart.req = 0;
+			this.buf.cond.notify();
+		}
+	}
+
+private: // bit-wise operations...
 	uint bit;
 
 	void requireBits(in uint count)

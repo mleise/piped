@@ -13,7 +13,7 @@ void consume(T)(T source)
 	auto get = consumable.source;
 	try while(true) {
 		get.commit(get.mapAtLeast(1).length);
-	} catch (EndOfStreamException) {
+	} catch (ConsumerStarvedException) {
 		// This is the expected outcome; not a single byte was left to copy.
 	}
 }

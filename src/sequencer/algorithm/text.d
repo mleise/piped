@@ -77,7 +77,7 @@ public:
 			immutable pos = this.peek.length;
 			this.peek = cast(const(char)[]) this.get.mapAtLeast(pos + 1);
 			b = this.peek.ptr + pos;
-		} catch (EndOfStreamException e) {
+		} catch (ConsumerStarvedException e) {
 			// There is no more line-breaks in the text. We might still have an unterminated line in
 			// the buffer though. Note: We get here a second time, if '_empty' isn't set below yet.
 			this.peek = cast(const(char)[]) this.get.mapAvailable();

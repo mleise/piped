@@ -115,7 +115,7 @@ public:
 			this.src.commit!uint();  // ISIZE
 
 			if (result) return result;
-		} catch (EndOfStreamException) {
+		} catch (ConsumerStarvedException) {
 			// this is the expected outcome after processing all gzip members
 		}
 		return 0; 

@@ -39,7 +39,7 @@ protected:
 			memcpy(dst.ptr, src.ptr, toCopy);
 			get.commit(toCopy);
 			put.commit(toCopy);
-		} catch (EndOfStreamException) {
+		} catch (ConsumerStarvedException) {
 			// this is the expected outcome; not a single byte was left to copy
 		}
 	}

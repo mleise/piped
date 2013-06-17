@@ -40,8 +40,7 @@ protected:
 			stderr.writeln(e);
 			stderr.writeln(e.info);
 		} finally {
-			this.buffer.finish();
-//			this.buffer.put.finish();
+			this.buffer.put.finish();
 			debug(threads) stderr.writefln("%s exiting", name);
 		}
 	}
