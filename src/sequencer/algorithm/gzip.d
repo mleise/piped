@@ -9,6 +9,7 @@ import std.string;
 import std.traits;
 
 import defs;
+import sequencer.algorithm.consume;
 import sequencer.circularbuffer;
 import sequencer.threads;
 
@@ -36,10 +37,11 @@ private:
 
 	@disable this();
 
-	this(CSequencerThread supplier) pure nothrow
+	this(CSequencerThread supplier)
 	{
 		this.supplier = supplier;
 		this.src      = supplier.source;
+		this.supplier.addUser();
 	}
 
 	const(char)[] mapStringZ()
@@ -57,6 +59,10 @@ private:
 	}
 
 public:
+	this(this) { this.supplier.addUser(); }
+
+	~this() { this.supplier.removeUser(); }
+
 	int opApply(in int delegate(string fname, CInflateThread inflator) dg)
 	{
 		try while (true) {
@@ -90,22 +96,19 @@ public:
 			}
 
 			// FHCRC
-			if (flags & 2)   
-				this.src.commit!ushort();
+			if (flags & 2) this.src.commit!ushort();
 
-			auto inflator = new CInflateThread(this.supplier, false);
-			inflator.start();
-			immutable result = dg(fname, inflator);
-			inflator.skipOver();
-			auto get = inflator.source;
-			try while (true) {
-				auto data = get.mapAtLeast(1);
-				get.commit(data.length);
-			} catch (EndOfStreamException) {
-				// we want to get here quickly
-			}
-			if (inflator.isRunning) {
-				inflator.join();
+			int result;
+			{
+				auto inflator = new CInflateThread(this.supplier);
+				inflator.addUser();
+				scope(exit) inflator.removeUser();
+
+				// Pass this thread into the foreach loop and get the result.
+				result = dg(fname, inflator);
+
+				// Skip over any unused data of this inflator quickly.
+				inflator.skipOver();
 			}
 
 			this.src.commit!uint();  // CRC32
@@ -144,11 +147,10 @@ private:
 	bool        lastBlock  = false;
 	ℕ           kept       = 0;
 
-	this(CSequencerThread supplier, in bool drainsSupplier)
+	this(CSequencerThread supplier)
 	{
 		super(supplier);
 		this.src = supplier.source;
-		this.autoJoin = drainsSupplier;
 	}
 
 	void moveWindow(in ℕ fill)
@@ -197,9 +199,10 @@ private:
 	 * Causes the thread to read any remaining blocks as fast as possible without providing output.
 	 * The thread is then joined automatically, since its work is done.
 	 */
-	void skipOver() pure nothrow
+	void skipOver()
 	{
 		atomicStore(this._skipOver, true);
+		consume(this);
 	}
 
 	void decodeBlock(bool needResult)()

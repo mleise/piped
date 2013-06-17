@@ -36,10 +36,15 @@ private:
 		this.supplier = supplier;
 		this.get = supplier.source;
 		this.removeTerminator = (keepTerminator == KeepTerminator.no);
+		this.supplier.addUser();
 		popFront();
 	}
 
 public:
+	this(this) { this.supplier.addUser(); }
+
+	~this() { this.supplier.removeUser(); }
+
 	@property bool empty() const pure nothrow { return this._empty; }
 
 	void popFront()
@@ -78,9 +83,6 @@ public:
 			this.peek = cast(const(char)[]) this.get.mapAvailable();
 			this.lineLength = this.lineSize = this.peek.length;
 			this._empty = (this.lineSize == 0);
-			// We join the supplier thread here.
-			// TODO: Allow this range to be destroyed before it is empty. (Requires notifying supply thread.)
-			if (this._empty) this.supplier.join();
 		}
 	}
 

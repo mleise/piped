@@ -13,7 +13,8 @@ int main(string[] args)
 	version (gc_benchmark) {
 		string plain = "Homo_sapiens.GRCh37.67.dna_rm.chromosome.Y.fa";
 	} else version (profile) {
-		string plain = "xenoRefMrna.fa";
+		string plain = "Homo_sapiens.GRCh37.67.dna_rm.chromosome.Y.fa";
+//		string plain = "xenoRefMrna.fa";
 		string gz    = plain ~ ".gz";
 	} else {
 		if (args.length < 3) {
@@ -58,9 +59,10 @@ int main(string[] args)
 
 private:
 
-real countBasesPhobos(string fname)
+real countBasesThreaded(string fname)
 {
-	return File(fname).byLine().countBasesImpl();
+	auto lines = File(fname).splitLines(KeepTerminator.no);
+	return countBasesImpl(lines);
 }
 
 real countBasesGZip(string fname)
@@ -73,12 +75,13 @@ real countBasesGZip(string fname)
 	return 0;
 }
 
-real countBasesThreaded(string fname)
+real countBasesPhobos(string fname)
 {
-	return File(fname).splitLines(KeepTerminator.no).countBasesImpl();
+	auto lines = File(fname).byLine();
+	return countBasesImpl(lines);
 }
 
-real countBasesImpl(R)(R range)
+real countBasesImpl(R)(ref R range)
 {
 	ℕ atCount, gcCount;
 	foreach (line; range) {

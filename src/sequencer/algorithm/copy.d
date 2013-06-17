@@ -10,9 +10,7 @@ import sequencer.threads;
 
 CCopyThread copy(T)(T source, in ℕ maxBlockSize = 4.KiB)
 {
-	auto copyThread = new CCopyThread(source.toSequencerThread(), maxBlockSize);
-	copyThread.start();
-	return copyThread;
+	return new CCopyThread(source.toSequencerThread(), maxBlockSize);
 }
 
 private final class CCopyThread : CAlgorithmThread
