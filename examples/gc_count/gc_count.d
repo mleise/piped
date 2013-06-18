@@ -4,7 +4,7 @@ import core.time;
 import std.stdio;
 
 import util;
-import piped.comp.gzip;
+import piped.compress.gzip;
 import piped.text.lines;
 
 
@@ -38,7 +38,6 @@ int main(string[] args)
 		Δt = TickDuration.currSystemTick - t1;
 		writefln("threaded buffer system          in %4s ms: %.2f%% G and C bases", Δt.msecs, gcFraction);
 
-		// TODO: make this not hang on non-gzip file
 		t1 = TickDuration.currSystemTick;
 		gcFraction = countBasesGZip(gz);
 		Δt = TickDuration.currSystemTick - t1;
@@ -64,7 +63,10 @@ real countBasesThreaded(string fname)
 
 real countBasesGZip(string fname)
 {
-	foreach (fname, inflator; File(fname).gzip()) {
+	// As long as http://d.puremagic.com/issues/show_bug.cgi?id=10409 persists, we need to store the gzip struct.
+	auto gzip = File(fname).gzip();
+	foreach (fname, inflator; gzip) {
+//	foreach (fname, inflator; File(fname).gzip()) {
 		auto lines = inflator.splitLines(KeepTerminator.no);
 		return countBasesImpl(lines);
 	}

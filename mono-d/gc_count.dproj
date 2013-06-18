@@ -59,8 +59,6 @@
     <None Include="..\examples\gc_count\Homo_sapiens.GRCh37.67.dna_rm.chromosome.Y.fa" />
   </ItemGroup>
   <ItemGroup>
-    <Compile Include="..\examples\gc_count\gc_count.d">
-      <LastGenOutput>../../obj/Debug/gc_count.o</LastGenOutput>
-    </Compile>
+    <Compile Include="..\examples\gc_count\gc_count.d" />
   </ItemGroup>
 </Project>

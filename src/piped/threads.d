@@ -7,19 +7,13 @@ import std.stdio;
 import util;
 import piped.circularbuffer;
 import piped.generic.consume;
+import piped.source.file;
 
 
 abstract class CSequencerThread : Thread
 {
 private:
 	ℕ users = 0;
-
-	this(string name)
-	{
-		super(&starter);
-		this.name = name;
-		this.buffer = SCircularBuffer(0);
-	}
 
 	debug(threads) ~this()
 	{
@@ -29,6 +23,13 @@ private:
 protected:
 	SCircularBuffer buffer;
 
+	this(string name)
+	{
+		super(&starter);
+		this.name = name;
+		this.buffer = SCircularBuffer(0);
+	}
+
 	void starter()
 	{
 		try {
@@ -37,11 +38,6 @@ protected:
 		} catch (ProducerStarvedException) {
 			// Most of the time the producing thread can just stop running as well when the consumer quits.
 			debug(threads) stderr.writeln(name ~ " caught a ProducerStarvedException.");
-		} catch (AssertError e) {
-			// In D we shouldn't try to catch asserts, but otherwise only asserts in the
-			// main thread get printed to stderr.
-			stderr.writeln(e);
-			stderr.writeln(e.info);
 		} finally {
 			this.buffer.put.finish();
 			debug(threads) stderr.writefln("stopping %s", name);
@@ -82,29 +78,6 @@ public:
 		}
 		this.users--;
 		if (this.users == 0) this.join();
-	}
-}
-
-class CFileThread : CSequencerThread
-{
-private:
-	File file;
-
-	this(File file)
-	{
-		super("thread reading '" ~ file.name ~ "'");
-		this.file = file;
-	}
-
-protected:
-	override void run()
-	{
-		auto put = this.buffer.put;
-		while (!this.file.eof) {
-			auto mapped = put.map(64.KiB);
-			auto read = this.file.rawRead(mapped[0 .. 64.KiB]);
-			put.commit(read.length);
-		}
 	}
 }
 

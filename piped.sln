@@ -34,7 +34,7 @@ Global
 	GlobalSection(NestedProjects) = preSolution
 	EndGlobalSection
 	GlobalSection(MonoDevelopProperties) = preSolution
-		StartupItem = mono-d\piped.dproj
+		StartupItem = mono-d\gc_count.dproj
 		Policies = $0
 		$0.TextStylePolicy = $1
 		$1.FileWidth = 120

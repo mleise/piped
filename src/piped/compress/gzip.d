@@ -1,4 +1,4 @@
-module piped.comp.gzip;
+module piped.compress.gzip;
 
 import core.atomic;
 import core.stdc.stdlib;

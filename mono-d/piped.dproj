@@ -45,11 +45,6 @@
     <Externalconsole>true</Externalconsole>
     <DebugLevel>0</DebugLevel>
   </PropertyGroup>
-  <ItemGroup>
-    <Folder Include="Sequencer\" />
-    <Folder Include="Sys\" />
-    <Folder Include="src\sequencer\algorithm\" />
-  </ItemGroup>
   <ProjectExtensions>
     <MonoDevelop>
       <Properties>
@@ -62,12 +57,29 @@
     </MonoDevelop>
   </ProjectExtensions>
   <ItemGroup>
-    <Compile Include="..\src\sys\memarch.d" />
-    <Compile Include="..\src\piped\comp\gzip.d" />
-    <Compile Include="..\src\piped\circularbuffer.d" />
-    <Compile Include="..\src\piped\threads.d" />
-    <Compile Include="..\src\piped\generic\consume.d" />
-    <Compile Include="..\src\piped\text\lines.d" />
-    <Compile Include="..\src\util.d" />
+    <Compile Include="..\src\sys\memarch.d">
+      <LastGenOutput>../obj/Debug/sys.memarch.o</LastGenOutput>
+    </Compile>
+    <Compile Include="..\src\piped\circularbuffer.d">
+      <LastGenOutput>../obj/Debug/piped.circularbuffer.o</LastGenOutput>
+    </Compile>
+    <Compile Include="..\src\piped\threads.d">
+      <LastGenOutput>../obj/Debug/piped.threads.o</LastGenOutput>
+    </Compile>
+    <Compile Include="..\src\piped\generic\consume.d">
+      <LastGenOutput>../obj/Debug/piped.generic.consume.o</LastGenOutput>
+    </Compile>
+    <Compile Include="..\src\piped\text\lines.d">
+      <LastGenOutput>../obj/Debug/piped.text.lines.o</LastGenOutput>
+    </Compile>
+    <Compile Include="..\src\util.d">
+      <LastGenOutput>../obj/Debug/util.o</LastGenOutput>
+    </Compile>
+    <Compile Include="..\src\piped\compress\gzip.d">
+      <LastGenOutput>../obj/Debug/piped.compress.gzip.o</LastGenOutput>
+    </Compile>
+    <Compile Include="..\src\piped\source\file.d">
+      <LastGenOutput>../obj/Debug/piped.source.file.o</LastGenOutput>
+    </Compile>
   </ItemGroup>
 </Project>
