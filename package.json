@@ -1,0 +1,7 @@
+{
+	"name": "piped",
+	"description": "A library that connects algorithms like piped Unix commands. Every processing step runs in a separate thread to maximize throughput.",
+	"authors": ["Marco Leise"],
+	"homepage": "http://github.com/mleise/piped",
+	"license": "GPL v2",
+}

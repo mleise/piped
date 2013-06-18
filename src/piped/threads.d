@@ -1,12 +1,12 @@
-module sequencer.threads;
+module piped.threads;
 
 import core.exception;
 import core.thread;
 import std.stdio;
 
-import defs;
-import sequencer.algorithm.consume;
-import sequencer.circularbuffer;
+import util;
+import piped.circularbuffer;
+import piped.generic.consume;
 
 
 abstract class CSequencerThread : Thread

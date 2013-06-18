@@ -1,12 +1,12 @@
-module sequencer.algorithm.text;
+module piped.text.lines;
 
 public import std.string : KeepTerminator;
 
 import std.range : isInputRange;
 
-import defs;
-import sequencer.circularbuffer;
-import sequencer.threads;
+import util;
+import piped.circularbuffer;
+import piped.threads;
 
 
 /**

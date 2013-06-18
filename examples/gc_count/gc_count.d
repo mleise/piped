@@ -1,11 +1,11 @@
-module fasta;
+module gc_count;
 
 import core.time;
 import std.stdio;
 
-import defs;
-import sequencer.algorithm.gzip;
-import sequencer.algorithm.text;
+import util;
+import piped.comp.gzip;
+import piped.text.lines;
 
 
 int main(string[] args)
@@ -14,7 +14,6 @@ int main(string[] args)
 		string plain = "Homo_sapiens.GRCh37.67.dna_rm.chromosome.Y.fa";
 	} else version (profile) {
 		string plain = "Homo_sapiens.GRCh37.67.dna_rm.chromosome.Y.fa";
-//		string plain = "xenoRefMrna.fa";
 	} else {
 		if (args.length < 2) {
 			stderr.writeln("You need to specify a FASTA file (which has a .gz version as well).");
@@ -32,7 +31,6 @@ int main(string[] args)
 		gcFraction = countBasesThreaded(plain);
 		writefln("%.3f %% G and C bases", gcFraction);
 	} else {
-		import sequencer.algorithm.consume;
 		writeln("Counting bases using different line reading approaches...");
 
 		t1 = TickDuration.currSystemTick;

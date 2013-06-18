@@ -1,4 +1,4 @@
-module sequencer.circularbuffer;
+module piped.circularbuffer;
 
 import core.atomic;
 import core.stdc.string;
@@ -10,7 +10,7 @@ import std.string;
 import std.traits;
 import sys.memarch;
 
-import defs;
+import util;
 
 
 class ConsumerStarvedException : Exception

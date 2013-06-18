@@ -1,6 +1,6 @@
 module sys.memarch;
 
-import defs;
+import util;
 
 
 immutable ℕ systemPageSize;

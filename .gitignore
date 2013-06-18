@@ -1,11 +1,8 @@
-Makefile
-Sequencer.userprefs
-FASTA/FASTA.userprefs
-bin/
-obj/
+/Makefile
+/bin/
+/obj/
+/oprofile_data/
+/profile_report.txt
 *.fa
 *.gz
-oprofile_data/
-profile_report.txt
-gc_benchmark_c
-gc_benchmark_d
+*.userprefs

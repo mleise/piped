@@ -1,0 +1,66 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Project DefaultTargets="Build" ToolsVersion="3.5" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <PropertyGroup>
+    <Configuration Condition=" '$(Configuration)' == '' ">Debug</Configuration>
+    <Platform Condition=" '$(Platform)' == '' ">AnyCPU</Platform>
+    <ProductVersion>9.0.21022</ProductVersion>
+    <SchemaVersion>2.0</SchemaVersion>
+    <ProjectGuid>{3A2F71AC-F97C-4B73-854D-94A633E31D5C}</ProjectGuid>
+    <BaseDirectory>..\examples\gc_count</BaseDirectory>
+    <PreferOneStepBuild>true</PreferOneStepBuild>
+    <UseDefaultCompiler>true</UseDefaultCompiler>
+    <IncrementalLinking>true</IncrementalLinking>
+    <ReleaseVersion />
+    <Compiler>LDC</Compiler>
+    <DependentProjectIds>
+      <DependentProjectIds>
+        <String>{A3D69969-3DC2-47EF-AEF6-98DF52421C7C}</String>
+      </DependentProjectIds>
+    </DependentProjectIds>
+  </PropertyGroup>
+  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|AnyCPU' ">
+    <DebugSymbols>true</DebugSymbols>
+    <OutputPath>..\bin\Debug</OutputPath>
+    <ObjectsDirectory>../../obj/Debug</ObjectsDirectory>
+    <UnittestMode>false</UnittestMode>
+    <OutputName>gc_count</OutputName>
+    <Target>Executable</Target>
+    <Externalconsole>true</Externalconsole>
+    <DebugLevel>0</DebugLevel>
+    <Commandlineparameters>../../examples/gc_count/Homo_sapiens.GRCh37.67.dna_rm.chromosome.Y.fa</Commandlineparameters>
+  </PropertyGroup>
+  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release|AnyCPU' ">
+    <OutputPath>..\bin\Release</OutputPath>
+    <Externalconsole>true</Externalconsole>
+    <Target>Executable</Target>
+    <OutputName>gc_count</OutputName>
+    <UnittestMode>false</UnittestMode>
+    <ObjectsDirectory>../../obj/Release</ObjectsDirectory>
+    <DebugLevel>0</DebugLevel>
+    <Commandlineparameters>../../examples/gc_count/Homo_sapiens.GRCh37.67.dna_rm.chromosome.Y.fa</Commandlineparameters>
+  </PropertyGroup>
+  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Unittest|AnyCPU' ">
+    <DebugSymbols>true</DebugSymbols>
+    <OutputPath>..\bin\Unittest</OutputPath>
+    <ObjectsDirectory>../../obj/Unittest</ObjectsDirectory>
+    <UnittestMode>true</UnittestMode>
+    <OutputName>gc_count</OutputName>
+    <Target>Executable</Target>
+    <Externalconsole>true</Externalconsole>
+    <DebugLevel>0</DebugLevel>
+    <Commandlineparameters>../../examples/gc_count/Homo_sapiens.GRCh37.67.dna_rm.chromosome.Y.fa</Commandlineparameters>
+  </PropertyGroup>
+  <ItemGroup>
+    <None Include="..\examples\gc_count\gc_benchmark.sh" />
+    <None Include="..\examples\gc_count\gc_DanielSpaangberg_Tbl.c" />
+    <None Include="..\examples\gc_count\gc_python.py" />
+    <None Include="..\examples\gc_count\gc_test.py" />
+    <None Include="..\examples\gc_count\gc_test_maximum.py" />
+    <None Include="..\examples\gc_count\Homo_sapiens.GRCh37.67.dna_rm.chromosome.Y.fa" />
+  </ItemGroup>
+  <ItemGroup>
+    <Compile Include="..\examples\gc_count\gc_count.d">
+      <LastGenOutput>../../obj/Debug/gc_count.o</LastGenOutput>
+    </Compile>
+  </ItemGroup>
+</Project>

@@ -1,11 +1,11 @@
-module sequencer.algorithm.copy;
+module piped.generic.copy;
 
 import core.stdc.string : memcpy;
 import std.algorithm    : min;
 
-import defs;
-import sequencer.circularbuffer;
-import sequencer.threads;
+import util;
+import piped.circularbuffer;
+import piped.threads;
 
 
 CCopyThread copy(T)(T source, in ℕ maxBlockSize = 4.KiB)

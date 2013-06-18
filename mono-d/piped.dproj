@@ -7,27 +7,29 @@
     <SchemaVersion>2.0</SchemaVersion>
     <ProjectGuid>{A3D69969-3DC2-47EF-AEF6-98DF52421C7C}</ProjectGuid>
     <PreferOneStepBuild>true</PreferOneStepBuild>
-    <UseDefaultCompiler>false</UseDefaultCompiler>
+    <UseDefaultCompiler>true</UseDefaultCompiler>
     <IncrementalLinking>true</IncrementalLinking>
-    <Compiler>GDC</Compiler>
+    <Compiler>LDC</Compiler>
     <BaseDirectory>..\src</BaseDirectory>
+    <ReleaseVersion />
+    <newfilesearch>OnLoadAutoInsert</newfilesearch>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|AnyCPU' ">
     <DebugSymbols>true</DebugSymbols>
     <OutputPath>..\bin\Debug</OutputPath>
     <ObjectsDirectory>../obj/Debug</ObjectsDirectory>
     <UnittestMode>false</UnittestMode>
-    <OutputName>FASTA</OutputName>
-    <Target>Executable</Target>
+    <OutputName>piped</OutputName>
+    <Target>StaticLibrary</Target>
     <Externalconsole>true</Externalconsole>
     <DebugLevel>0</DebugLevel>
-    <Commandlineparameters>../../Homo_sapiens.GRCh37.67.dna_rm.chromosome.Y.fa ../../Homo_sapiens.GRCh37.67.dna_rm.chromosome.Y.fa.gz</Commandlineparameters>
+    <Commandlineparameters>../../examples/gc_count/Homo_sapiens.GRCh37.67.dna_rm.chromosome.Y.fa</Commandlineparameters>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release|AnyCPU' ">
     <OutputPath>..\bin\Release</OutputPath>
     <Externalconsole>true</Externalconsole>
-    <Target>Executable</Target>
-    <OutputName>FASTA</OutputName>
+    <Target>StaticLibrary</Target>
+    <OutputName>piped</OutputName>
     <UnittestMode>false</UnittestMode>
     <ObjectsDirectory>../obj/Release</ObjectsDirectory>
     <DebugLevel>0</DebugLevel>
@@ -38,8 +40,8 @@
     <OutputPath>..\bin\Unittest</OutputPath>
     <ObjectsDirectory>../obj/Unittest</ObjectsDirectory>
     <UnittestMode>true</UnittestMode>
-    <OutputName>FASTA</OutputName>
-    <Target>Executable</Target>
+    <OutputName>piped</OutputName>
+    <Target>StaticLibrary</Target>
     <Externalconsole>true</Externalconsole>
     <DebugLevel>0</DebugLevel>
   </PropertyGroup>
@@ -54,24 +56,18 @@
         <Policies>
           <TextStylePolicy FileWidth="120" TabWidth="3" IndentWidth="3" NoTabsAfterNonTabs="True" EolMarker="Unix" inheritsSet="Mono" inheritsScope="text/plain" scope="text/x-d" />
           <DFormattingPolicy IndentPastedCodeLines="False" inheritsSet="Mono" inheritsScope="text/x-d" scope="text/x-d" />
+          <TextStylePolicy FileWidth="120" EolMarker="Unix" inheritsSet="Mono" inheritsScope="text/plain" scope="text/plain" />
         </Policies>
       </Properties>
     </MonoDevelop>
   </ProjectExtensions>
   <ItemGroup>
-    <Compile Include="..\src\defs.d" />
-    <Compile Include="..\src\fasta.d" />
-    <Compile Include="..\src\sequencer\circularbuffer.d" />
-    <Compile Include="..\src\sequencer\threads.d" />
-    <Compile Include="..\src\sequencer\algorithm\copy.d" />
-    <Compile Include="..\src\sequencer\algorithm\gzip.d" />
-    <Compile Include="..\src\sequencer\algorithm\text.d" />
     <Compile Include="..\src\sys\memarch.d" />
-    <Compile Include="..\src\sequencer\algorithm\consume.d" />
-  </ItemGroup>
-  <ItemGroup>
-    <None Include="..\gc_benchmark.sh">
-      <Link>gc_benchmark.sh</Link>
-    </None>
+    <Compile Include="..\src\piped\comp\gzip.d" />
+    <Compile Include="..\src\piped\circularbuffer.d" />
+    <Compile Include="..\src\piped\threads.d" />
+    <Compile Include="..\src\piped\generic\consume.d" />
+    <Compile Include="..\src\piped\text\lines.d" />
+    <Compile Include="..\src\util.d" />
   </ItemGroup>
 </Project>

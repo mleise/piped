@@ -1,7 +1,7 @@
-module sequencer.algorithm.consume;
+module piped.generic.consume;
 
-import sequencer.circularbuffer;
-import sequencer.threads;
+import piped.circularbuffer;
+import piped.threads;
 
 
 void consume(T)(T source)

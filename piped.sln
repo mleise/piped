@@ -1,7 +1,15 @@
 ﻿
 Microsoft Visual Studio Solution File, Format Version 10.00
 # Visual Studio 2008
-Project("{3947E667-4C90-4C3A-BEB9-7148D6FE0D7C}") = "FASTA", "FASTA\FASTA.dproj", "{A3D69969-3DC2-47EF-AEF6-98DF52421C7C}"
+Project("{3947E667-4C90-4C3A-BEB9-7148D6FE0D7C}") = "piped", "mono-d\piped.dproj", "{A3D69969-3DC2-47EF-AEF6-98DF52421C7C}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Solution Items", "Solution Items", "{E2E4EB11-76FC-4A5F-97A4-2560AA2CC8A7}"
+	ProjectSection(SolutionItems) = preProject
+		package.json = package.json
+		README.md = README.md
+	EndProjectSection
+EndProject
+Project("{3947E667-4C90-4C3A-BEB9-7148D6FE0D7C}") = "gc_count", "mono-d\gc_count.dproj", "{3A2F71AC-F97C-4B73-854D-94A633E31D5C}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -10,6 +18,12 @@ Global
 		Unittest|Any CPU = Unittest|Any CPU
 	EndGlobalSection
 	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{3A2F71AC-F97C-4B73-854D-94A633E31D5C}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{3A2F71AC-F97C-4B73-854D-94A633E31D5C}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{3A2F71AC-F97C-4B73-854D-94A633E31D5C}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{3A2F71AC-F97C-4B73-854D-94A633E31D5C}.Release|Any CPU.Build.0 = Release|Any CPU
+		{3A2F71AC-F97C-4B73-854D-94A633E31D5C}.Unittest|Any CPU.ActiveCfg = Unittest|Any CPU
+		{3A2F71AC-F97C-4B73-854D-94A633E31D5C}.Unittest|Any CPU.Build.0 = Unittest|Any CPU
 		{A3D69969-3DC2-47EF-AEF6-98DF52421C7C}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
 		{A3D69969-3DC2-47EF-AEF6-98DF52421C7C}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{A3D69969-3DC2-47EF-AEF6-98DF52421C7C}.Release|Any CPU.ActiveCfg = Release|Any CPU
@@ -17,8 +31,10 @@ Global
 		{A3D69969-3DC2-47EF-AEF6-98DF52421C7C}.Unittest|Any CPU.ActiveCfg = Unittest|Any CPU
 		{A3D69969-3DC2-47EF-AEF6-98DF52421C7C}.Unittest|Any CPU.Build.0 = Unittest|Any CPU
 	EndGlobalSection
+	GlobalSection(NestedProjects) = preSolution
+	EndGlobalSection
 	GlobalSection(MonoDevelopProperties) = preSolution
-		StartupItem = FASTA\FASTA.dproj
+		StartupItem = mono-d\piped.dproj
 		Policies = $0
 		$0.TextStylePolicy = $1
 		$1.FileWidth = 120
@@ -167,5 +183,12 @@ Global
 		$26.NamingStyle = PascalCase
 		$26.IncludeInstanceMembers = True
 		$26.IncludeStaticEntities = True
+		$0.VersionControlPolicy = $28
+		$28.CommitMessageStyle = $29
+		$29.FileSeparator = ", "
+		$29.IncludeDirectoryPaths = True
+		$28.inheritsSet = Mono
+		version = 
+		outputpath = bin
 	EndGlobalSection
 EndGlobal

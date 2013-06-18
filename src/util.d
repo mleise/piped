@@ -1,4 +1,4 @@
-module defs;
+module util;
 
 import core.bitop;
 import std.traits;

@@ -1,4 +1,4 @@
-module sequencer.algorithm.gzip;
+module piped.comp.gzip;
 
 import core.atomic;
 import core.stdc.stdlib;
@@ -8,10 +8,10 @@ import std.range;
 import std.string;
 import std.traits;
 
-import defs;
-import sequencer.algorithm.consume;
-import sequencer.circularbuffer;
-import sequencer.threads;
+import util;
+import piped.circularbuffer;
+import piped.generic.consume;
+import piped.threads;
 
 
 /**
