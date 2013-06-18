@@ -9,7 +9,7 @@
     <PreferOneStepBuild>true</PreferOneStepBuild>
     <UseDefaultCompiler>false</UseDefaultCompiler>
     <IncrementalLinking>true</IncrementalLinking>
-    <Compiler>DMD</Compiler>
+    <Compiler>GDC</Compiler>
     <BaseDirectory>..\src</BaseDirectory>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|AnyCPU' ">

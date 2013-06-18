@@ -435,47 +435,38 @@ public:
 private: // bit-wise operations...
 	uint bit;
 
-	void requireBits(in uint count)
-	{
-		// calculate required buffer space; hackish first check if the max. bits are in
-		if (this.knownMappable > 8) return;
-
-		if (count > 8 * this.knownMappable - this.bit) {
-			immutable requiredBytes = (count + this.bit + 7) / 8;
-			ensureMappable(requiredBytes);
-		}
-	}
-
-	ℕ readBitsImpl(T, bool peek)(in uint count) if (isUnsigned!T)
+	ℕ readBitsImpl(T)(bool peek, in uint count)
 	in { 
-		assert(T.sizeof <= ℕ.sizeof);
-		assert(count <= T.sizeof * 8);
-		assert(count <= ulong.sizeof * 8 - 7);
+		assert(count <= ℕ.sizeof * 8 - 7);
 	} body {
-		requireBits(count);
+		immutable ℕ mask = (1 << count) - 1;
 
-		// select a type that can hold any value of T + 7 bits
-		static if (is(T == ubyte))
-			alias L = ushort;
-		else static if (is(T == ushort))
-			alias L = uint;
-		else
-			alias L = ulong;
-
-		ℕ value = cast(ℕ) (*cast(L*) this.ptr >> this.bit) & ((1 << count) - 1);
-		static if (!peek) commitBits(count);
+		ℕ value;
+		if (this.knownMappable >= ℕ.sizeof) {
+			value = *cast(ℕ*) this.ptr >> this.bit & mask;
+		} else {
+			immutable requiredBytes = (count + this.bit + 7) / 8;
+			if (requiredBytes > this.knownMappable) {
+				ensureMappable(requiredBytes);
+			}
+			(cast(ubyte*) &value)[0 .. requiredBytes] = this.ptr[0 .. requiredBytes];
+			value = value >> this.bit & mask;
+		}
+		if (!peek) commitBits(count);
 		return value;
 	}
 
 public:
-	auto peekBits(T)(in uint count) if (isUnsigned!T)
+	auto peekBits(T)(in uint count)
 	{
-		return readBitsImpl!(T, true)(count);
+		return readBitsImpl!T(true, count);
 	}
 
 	void skipBits(in uint count)
 	{
-		requireBits(count);
+		immutable requiredBytes = (count + this.bit + 7) / 8;
+		if (requiredBytes > this.knownMappable)
+			ensureMappable(requiredBytes);
 		commitBits(count);
 	}
 
@@ -497,22 +488,12 @@ public:
 
 	auto readBits(uint count)()
 	{
-		// select return type
-		static if (count <= 8)
-			alias T = ubyte;
-		else static if (count <= 16)
-			alias T = ushort;
-		else static if (count <= 32)
-			alias T = uint;
-		else static if (count <= 64)
-			alias T = ulong;
-		else static assert("binary stream can only read up to 64 bits at once");
-		return readBitsImpl!(T, false)(count);
+		return readBits!ubyte(count);
 	}
 
-	auto readBits(T)(in uint count) if (isUnsigned!T)
+	auto readBits(T)(in uint count)
 	{
-		return readBitsImpl!(T, false)(count);
+		return readBitsImpl!T(false, count);
 	}
 
 	void skipBitsToNextByte()
