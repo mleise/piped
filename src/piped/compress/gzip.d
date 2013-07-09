@@ -102,7 +102,7 @@ public:
 
 			// Pass this thread into the foreach loop and get the result.
 			if (auto result = dg(fname, inflator)) return result;
-			
+
 			// Skip over any unused data of this inflator quickly.
 			inflator.skipOver();
 
@@ -111,7 +111,7 @@ public:
 		} catch (ConsumerStarvedException) {
 			// this is the expected outcome after processing all gzip members
 		}
-		return 0; 
+		return 0;
 	}
 }
 
@@ -125,6 +125,18 @@ align(1) struct GZipMember
 	ubyte os;
 }
 static assert(GZipMember.sizeof == 10);
+
+T reverseBits(T)(T value, in uint count) pure nothrow if (isUnsigned!T)
+in { assert(value < (1 << count)); }
+body {
+	T result = 0;
+	foreach (i; 0 .. count) {
+		result <<= 1;
+		result |= value & 1;
+		value >>= 1;
+	}
+	return result;
+}
 
 final class CInflateThread : CAlgorithmThread
 {
@@ -502,16 +514,4 @@ public:
 	{
 		return maxBits == 0;
 	}
-}
-
-T reverseBits(T)(T value, in uint count) pure nothrow if (isUnsigned!T)
-in { assert(value < (1 << count)); }
-body {
-	T result = 0;
-	foreach (i; 0 .. count) {
-		result <<= 1;
-		result |= value & 1;
-		value >>= 1;
-	}
-	return result;
 }
